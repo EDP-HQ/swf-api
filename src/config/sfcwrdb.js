@@ -1,4 +1,4 @@
-const local = {
+const sfcwrdbConfig = {
     user: "sa",
     password: "KisWire2020",
     server: "194.1.31.3",
@@ -9,6 +9,6 @@ const local = {
     },
   };
   
+  module.exports = sfcwrdbConfig;
   
-  module.exports = local;
   

@@ -1,7 +1,7 @@
 {
-  "name": "roller-api",
-  "version": "roller.1.0.0",
-  "description": "api for db (sql-server)",
+  "name": "swf-api",
+  "version": "1.0.0",
+  "description": "SWF API — SQL Server-backed roller and bobbin monitoring",
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js",
