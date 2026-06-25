@@ -1,0 +1,46 @@
+/*
+    Allow multiple historical rows per machine + PART_SEQ.
+    Only one active row ([USE] = 'Y') per machine + PART_SEQ.
+*/
+
+USE SFC_WR_DB;
+GO
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.key_constraints
+    WHERE name = N'UQ_TB_COMPONENTS_TRACKER_MACHINE_SEQ'
+      AND parent_object_id = OBJECT_ID(N'dbo.TB_COMPONENTS_TRACKER')
+)
+BEGIN
+    ALTER TABLE dbo.TB_COMPONENTS_TRACKER
+        DROP CONSTRAINT UQ_TB_COMPONENTS_TRACKER_MACHINE_SEQ;
+END;
+GO
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = N'UQ_TB_COMPONENTS_TRACKER_MACHINE_SEQ_ACTIVE'
+      AND object_id = OBJECT_ID(N'dbo.TB_COMPONENTS_TRACKER')
+      AND filter_definition IS NOT NULL
+      AND filter_definition NOT LIKE '%[USE]%'
+)
+BEGIN
+    DROP INDEX UQ_TB_COMPONENTS_TRACKER_MACHINE_SEQ_ACTIVE
+        ON dbo.TB_COMPONENTS_TRACKER;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = N'UQ_TB_COMPONENTS_TRACKER_MACHINE_SEQ_ACTIVE'
+      AND object_id = OBJECT_ID(N'dbo.TB_COMPONENTS_TRACKER')
+)
+BEGIN
+    CREATE UNIQUE NONCLUSTERED INDEX UQ_TB_COMPONENTS_TRACKER_MACHINE_SEQ_ACTIVE
+        ON dbo.TB_COMPONENTS_TRACKER (MACHINE_NM, PART_SEQ)
+        WHERE [USE] = 'Y';
+END;
+GO

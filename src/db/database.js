@@ -3,11 +3,22 @@ const sql = require('mssql');
 
 // cache one pool per distinct dbConfig (by JSON string key)
 const pools = new Map();
+/** @type {Map<string, Promise<import('mssql').ConnectionPool>>} */
+const connecting = new Map();
 
 function keyOf(cfg) {
   // only include relevant props
   const { user, server, database, port } = cfg || {};
   return JSON.stringify({ user, server, database, port });
+}
+
+function dropPool(k) {
+  const pool = pools.get(k);
+  if (pool) {
+    try { pool.close(); } catch (_) {}
+  }
+  pools.delete(k);
+  connecting.delete(k);
 }
 
 // build a safe config with keepalive/timeouts
@@ -41,31 +52,32 @@ async function getPool(dbConfig) {
   const cached = pools.get(k);
 
   if (cached?.connected) return cached;
-  if (cached?.connecting) return cached.connecting; // a promise
 
-  const pool = new sql.ConnectionPool(buildConfig(dbConfig));
-  const connecting = pool.connect()
-    .then(() => {
-      pool.connecting = null;
-      return pool;
-    })
-    .catch(err => {
-      // if connect fails, clear so next call retries
-      pools.delete(k);
-      throw err;
+  const inFlight = connecting.get(k);
+  if (inFlight) return inFlight;
+
+  const promise = (async () => {
+    const pool = new sql.ConnectionPool(buildConfig(dbConfig));
+
+    pool.on('error', (err) => {
+      console.error('[DB] pool error:', err?.message || err);
+      dropPool(k);
     });
 
-  pool.connecting = connecting;
+    await pool.connect();
+    pools.set(k, pool);
+    connecting.delete(k);
+    return pool;
+  })();
 
-  // pool-level error handler: drop from cache so next call reconnects
-  pool.on('error', (err) => {
-    console.error('[DB] pool error:', err?.message || err);
-    try { pool.close(); } catch (_) {}
-    pools.delete(k);
-  });
+  connecting.set(k, promise);
 
-  pools.set(k, pool);
-  return connecting;
+  try {
+    return await promise;
+  } catch (err) {
+    dropPool(k);
+    throw err;
+  }
 }
 
 // periodic ping to keep sockets alive & detect silent drops
@@ -76,12 +88,7 @@ function startHealthPing(dbConfig, intervalMs = 300000) {
       await pool.request().query('SELECT 1');
     } catch (e) {
       console.warn('[DB] ping failed, will reconnect on next request:', e.message);
-      const k = keyOf(dbConfig);
-      const p = pools.get(k);
-      if (p) {
-        try { p.close(); } catch (_) {}
-        pools.delete(k);
-      }
+      dropPool(keyOf(dbConfig));
     }
   }, intervalMs);
 }

@@ -13,7 +13,7 @@
     "sqlserver",
     "erite"
   ],
-  "author": "sheik hazrin",
+  "author": "Haniff",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },

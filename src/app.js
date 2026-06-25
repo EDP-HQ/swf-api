@@ -3,6 +3,7 @@
  */
 const express = require('express');
 const rollerRoutes = require('./routes/roller');
+const componentsRoutes = require('./routes/components');
 const bobbinRoutes = require('./routes/bobbin');
 const dbRegistry = require('./config/dbRegistry');
 const database = require('./db/database');
@@ -44,13 +45,27 @@ function createApp() {
       databaseConnections: results,
       allConnected: results.every((r) => r.connected),
       areas: {
-        roller: { prefix: '/roller', example: 'GET /roller/list' },
+        roller: {
+          prefix: '/roller',
+          example: 'GET /roller/list',
+          updateRuntime: 'POST /roller/updateruntime',
+          production: 'GET /roller/sfcwr/list (sfcwrdb on 194.1.31.3)'
+        },
+        components: {
+          prefix: '/components',
+          example: 'GET /components/select',
+          replace: 'POST /components/replace',
+          updateRuntime: 'POST /components/updateruntime',
+          updateRuntimeLimit: 'POST /components/updateruntimelimit',
+          production: 'GET /components/sfcwr/select (sfcwrdb on 194.1.31.3)'
+        },
         bobbin: { prefix: '/bobbin', example: 'GET /bobbin' }
       }
     });
   });
 
   app.use('/roller', rollerRoutes);
+  app.use('/components', componentsRoutes);
   app.use('/bobbin', bobbinRoutes);
 
   return app;
