@@ -57,6 +57,7 @@ function createApp() {
           replace: 'POST /components/replace',
           updateRuntime: 'POST /components/updateruntime',
           updateRuntimeLimit: 'POST /components/updateruntimelimit',
+          insert: 'POST /components/insert',
           production: 'GET /components/sfcwr/select (sfcwrdb on 194.1.31.3)'
         },
         bobbin: { prefix: '/bobbin', example: 'GET /bobbin' }

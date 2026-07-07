@@ -11,6 +11,11 @@
 USE SFC_WR_DB;
 GO
 
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
 CREATE OR ALTER PROCEDURE dbo.sp_Roller_UpdateRuntime
     @RollerId       VARCHAR(30)  = NULL,
     @BinLocationCd  NVARCHAR(50) = NULL,

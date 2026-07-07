@@ -8,6 +8,11 @@
 USE SFC_WR_DB;
 GO
 
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
 CREATE OR ALTER PROCEDURE dbo.sp_Components_UpdateRuntimeLimit
     @PartId            VARCHAR(20)     = NULL,
     @MachineNm         NVARCHAR(100)   = NULL,
@@ -26,12 +31,6 @@ BEGIN
     IF @PartId IS NULL AND (@MachineNm IS NULL OR @PartSeq IS NULL)
     BEGIN
         RAISERROR(N'Provide PartId or both MachineNm and PartSeq.', 16, 1);
-        RETURN;
-    END;
-
-    IF @PartSeq IS NOT NULL AND @PartSeq NOT IN (1, 2, 3)
-    BEGIN
-        RAISERROR(N'PartSeq must be 1 (gearbox), 2 (SF), or 3 (SB).', 16, 1);
         RETURN;
     END;
 

@@ -1,13 +1,18 @@
 /*
     Replace an active component:
       1. Set former row [USE] = 'N' and DISMANTLE_DT = now
-      2. Insert new row with RUNTIME_SEC = 0 and [USE] = 'Y'
+      2. Insert new row with RUNTIME_SEC = 0, [USE] = 'Y', and PART_SEQ = MAX(active PART_SEQ) + 1
 
     Identify the active row by @PartId OR (@MachineNm + @PartSeq).
     Returns the newly inserted row.
 */
 
 USE SFC_WR_DB;
+GO
+
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
 GO
 
 CREATE OR ALTER PROCEDURE dbo.sp_Components_Replace
@@ -23,12 +28,6 @@ BEGIN
     IF @PartId IS NULL AND (@MachineNm IS NULL OR @PartSeq IS NULL)
     BEGIN
         RAISERROR(N'Provide PartId or both MachineNm and PartSeq.', 16, 1);
-        RETURN;
-    END;
-
-    IF @PartSeq IS NOT NULL AND @PartSeq NOT IN (1, 2, 3)
-    BEGIN
-        RAISERROR(N'PartSeq must be 1 (gearbox), 2 (SF), or 3 (SB).', 16, 1);
         RETURN;
     END;
 
@@ -73,6 +72,13 @@ BEGIN
     IF @RuntimeLimitHour IS NOT NULL AND @RuntimeLimitHour > 0
         SET @Limit = @RuntimeLimitHour;
 
+    DECLARE @NewPartSeq INT;
+
+    SELECT @NewPartSeq = ISNULL(MAX(PART_SEQ), 0) + 1
+    FROM dbo.TB_COMPONENTS_TRACKER WITH (UPDLOCK, HOLDLOCK)
+    WHERE [USE] = 'Y'
+      AND MACHINE_NM = @Machine;
+
     BEGIN TRAN;
 
     UPDATE dbo.TB_COMPONENTS_TRACKER
@@ -106,7 +112,7 @@ BEGIN
         @Company,
         @Factory,
         @NewPartId,
-        @Seq,
+        @NewPartSeq,
         @PartType,
         @Machine,
         @ReplaceDt,

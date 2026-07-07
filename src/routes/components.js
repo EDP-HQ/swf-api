@@ -20,6 +20,14 @@ const PART_KEY_TO_SEQ = {
   skipper_bearing_sb: 3
 };
 
+const PART_KEY_TO_TYPE = {
+  gearbox: 'GEARBOX',
+  skipperFront: 'SF',
+  skipperBack: 'SB',
+  skipper_bearing_sf: 'SF',
+  skipper_bearing_sb: 'SB'
+};
+
 function selectHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
@@ -168,13 +176,61 @@ function replaceHandler(dbConfig, logTag) {
   };
 }
 
+function insertHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const { params = {} } = req.body || {};
+      const company = params.Company ?? params.company ?? 'KSB';
+      const factory = params.Factory ?? params.factory ?? 'F002';
+      const machineNm = params.MachineNm ?? params.MachineName ?? params.machineNm ?? null;
+      const partKey = params.PartKey ?? params.partKey ?? null;
+      let partType = params.PartType ?? params.partType ?? null;
+      const runtimeLimit =
+        params.RuntimeLimit ?? params.RuntimeLimitHour ?? params.runtimeLimit ?? null;
+
+      if (!partType && partKey != null) {
+        partType = PART_KEY_TO_TYPE[partKey] ?? null;
+      }
+
+      if (!machineNm) {
+        return res.status(400).json({ error: 'MachineName is required' });
+      }
+
+      if (!partType) {
+        return res.status(400).json({ error: 'PartType or PartKey is required' });
+      }
+
+      if (runtimeLimit == null || Number(runtimeLimit) <= 0) {
+        return res.status(400).json({ error: 'RuntimeLimit is required and must be > 0' });
+      }
+
+      const parameters = [
+        { name: 'Company', value: company },
+        { name: 'Factory', value: factory },
+        { name: 'MachineNm', value: machineNm },
+        { name: 'PartType', value: partType },
+        { name: 'RuntimeLimitHour', value: runtimeLimit, type: sql.Decimal(12, 2) }
+      ];
+
+      await database.executeStoredProcedure(res, dbConfig, 'sp_Components_Insert', parameters);
+    } catch (error) {
+      console.error(`components/insert${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
+    }
+  };
+}
+
 router.get('/select', selectHandler(localdbConfig));
 router.post('/replace', replaceHandler(localdbConfig));
 router.post('/updateruntime', updateRuntimeHandler(localdbConfig));
 router.post('/updateruntimelimit', updateRuntimeLimitHandler(localdbConfig));
+router.post('/insert', insertHandler(localdbConfig));
 router.get('/sfcwr/select', selectHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/replace', replaceHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntime', updateRuntimeHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntimelimit', updateRuntimeLimitHandler(sfcwrdbConfig, 'sfcwr'));
+router.post('/sfcwr/insert', insertHandler(sfcwrdbConfig, 'sfcwr'));
 
 module.exports = router;
