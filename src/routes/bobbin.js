@@ -2,10 +2,9 @@
  * Bobbin monitoring — add routes here as you wire SQL Server stored procedures.
  * Public URL prefix: /bobbin (mounted in app.js)
  *
- * Default paths use localdb. Parallel paths under /bobbin/sfcwr/* use sfcwrdb (real server).
+ * All paths use sfcwrdb (SFC_WR_DB on 194.1.31.3).
  */
 const express = require('express');
-const localdbConfig = require('../config/localdb');
 const sfcwrdbConfig = require('../config/sfcwrdb');
 const bobbinApi = require('../config/bobbinApi');
 const database = require('../db/database');
@@ -243,7 +242,7 @@ router.get('/', (req, res) => {
     prefix: '/bobbin',
     databases: {
       local:
-        'localdb — … bobbincycle, bobbinlifespan, limitwarning, POST pdalogin, POST pdascrap',
+        'sfcwrdb — … bobbincycle, bobbinlifespan, limitwarning, POST pdalogin, POST pdascrap',
       sfcwr:
         'sfcwrdb (remote) — … sfcwr/* same + POST /bobbin/sfcwr/pdalogin, POST /bobbin/sfcwr/pdascrap'
     },
@@ -253,7 +252,7 @@ router.get('/', (req, res) => {
         method: 'GET',
         path: '/bobbin/bobbincycle',
         description:
-          'localdb — USP_SFC_KPRD010_R10 — query: lc_cd; company/factory/lang from bobbinApi config'
+          'sfcwrdb — USP_SFC_KPRD010_R10 — query: lc_cd; company/factory/lang from bobbinApi config'
       },
       {
         method: 'GET',
@@ -263,7 +262,7 @@ router.get('/', (req, res) => {
       {
         method: 'GET',
         path: '/bobbin/bobbinlifespan',
-        description: 'localdb — BobbinStartDate — query: lc_cd (first cycle date)'
+        description: 'sfcwrdb — BobbinStartDate — query: lc_cd (first cycle date)'
       },
       {
         method: 'GET',
@@ -273,7 +272,7 @@ router.get('/', (req, res) => {
       {
         method: 'GET',
         path: '/bobbin/limitwarning',
-        description: 'localdb — sp_Bobbin_Limit_Warning_Select — latest TB_BOBBIN_LIMIT row'
+        description: 'sfcwrdb — sp_Bobbin_Limit_Warning_Select — latest TB_BOBBIN_LIMIT row'
       },
       {
         method: 'GET',
@@ -284,7 +283,7 @@ router.get('/', (req, res) => {
         method: 'POST',
         path: '/bobbin/limitwarning',
         body: '{ bobbinCycleLimit, bobbinLifeSpanLimit, bobbinCycleWarning, bobbinLifespanWarning }',
-        description: 'localdb — sp_Bobbin_Limit_Warning_Update — insert TB_BOBBIN_LIMIT'
+        description: 'sfcwrdb — sp_Bobbin_Limit_Warning_Update — insert TB_BOBBIN_LIMIT'
       },
       {
         method: 'POST',
@@ -296,7 +295,7 @@ router.get('/', (req, res) => {
         method: 'POST',
         path: '/bobbin/pdalogin',
         body: '{ emp_cd } optional lang — company/factory from bobbinApi config',
-        description: 'localdb — sp_Bobbin_Tracker_Login_Check → TB_CD_EMP'
+        description: 'sfcwrdb — sp_Bobbin_Tracker_Login_Check → TB_CD_EMP'
       },
       {
         method: 'POST',
@@ -308,7 +307,7 @@ router.get('/', (req, res) => {
         method: 'POST',
         path: '/bobbin/pdascrap',
         body: '{ lc_cd: full bobbin code, emp_cd } — COMPANY/FACTORY same as bobbincycle (bobbinApi); USER=emp_cd; LANG always ENG (lc_cd is not last-4-only)',
-        description: 'localdb — USP_SFC_PDA_SCRAP_I10 (scrap / TB_INVENTORY_SCRAP + delete inventory)'
+        description: 'sfcwrdb — USP_SFC_PDA_SCRAP_I10 (scrap / TB_INVENTORY_SCRAP + delete inventory)'
       },
       {
         method: 'POST',
@@ -320,22 +319,16 @@ router.get('/', (req, res) => {
   });
 });
 
-router.get('/bobbincycle', bobbincycleHandler(localdbConfig));
 router.get('/sfcwr/bobbincycle', bobbincycleHandler(sfcwrdbConfig, 'sfcwr'));
 
-router.get('/limitwarning', limitwarningGetHandler(localdbConfig));
 router.get('/sfcwr/limitwarning', limitwarningGetHandler(sfcwrdbConfig, 'sfcwr'));
 
-router.post('/limitwarning', limitwarningPostHandler(localdbConfig));
 router.post('/sfcwr/limitwarning', limitwarningPostHandler(sfcwrdbConfig, 'sfcwr'));
 
-router.get('/bobbinlifespan', bobbinlifespanHandler(localdbConfig));
 router.get('/sfcwr/bobbinlifespan', bobbinlifespanHandler(sfcwrdbConfig, 'sfcwr'));
 
-router.post('/pdalogin', pdaLoginHandler(localdbConfig));
 router.post('/sfcwr/pdalogin', pdaLoginHandler(sfcwrdbConfig, 'sfcwr'));
 
-router.post('/pdascrap', pdaScrapHandler(localdbConfig));
 router.post('/sfcwr/pdascrap', pdaScrapHandler(sfcwrdbConfig, 'sfcwr'));
 
 module.exports = router;

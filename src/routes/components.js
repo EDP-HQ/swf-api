@@ -2,10 +2,9 @@
  * Parts Monitoring — fixed components (gearbox, skipper SF/SB).
  * Public URL prefix: /components (mounted in app.js)
  *
- * Default paths use localdb. Parallel paths under /components/sfcwr/* use sfcwrdb.
+ * All paths use sfcwrdb (SFC_WR_DB on 194.1.31.3).
  */
 const express = require('express');
-const localdbConfig = require('../config/localdb');
 const sfcwrdbConfig = require('../config/sfcwrdb');
 const database = require('../db/database');
 const sql = database.sql;
@@ -222,11 +221,6 @@ function insertHandler(dbConfig, logTag) {
   };
 }
 
-router.get('/select', selectHandler(localdbConfig));
-router.post('/replace', replaceHandler(localdbConfig));
-router.post('/updateruntime', updateRuntimeHandler(localdbConfig));
-router.post('/updateruntimelimit', updateRuntimeLimitHandler(localdbConfig));
-router.post('/insert', insertHandler(localdbConfig));
 router.get('/sfcwr/select', selectHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/replace', replaceHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntime', updateRuntimeHandler(sfcwrdbConfig, 'sfcwr'));
