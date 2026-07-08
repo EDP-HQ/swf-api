@@ -2,9 +2,10 @@
  * Roller monitoring — SQL Server stored procedures (SFC_WR_DB).
  * Public URL prefix: /roller (mounted in app.js)
  *
- * All paths use sfcwrdb (SFC_WR_DB on 194.1.31.3).
+ * Default paths use localdb. Parallel paths under /roller/sfcwr/* use sfcwrdb (remote server).
  */
 const express = require('express');
+const localdbConfig = require('../config/localdb');
 const sfcwrdbConfig = require('../config/sfcwrdb');
 const database = require('../db/database');
 const sql = database.sql;
@@ -197,6 +198,18 @@ function updateRuntimeHandler(dbConfig, logTag) {
   };
 }
 
+// localdb (127.0.0.1)
+router.get('/onoff', onoffHandler(localdbConfig));
+router.get('/list', listHandler(localdbConfig));
+router.get('/activelist', activelistHandler(localdbConfig));
+router.get('/currentruntime', currentruntimeHandler(localdbConfig));
+router.get('/history', historyHandler(localdbConfig));
+router.post('/updateruntimelimit', updateruntimelimitHandler(localdbConfig));
+router.post('/batchupdateruntimelimit', batchupdateruntimelimitHandler(localdbConfig));
+router.post('/updateruntime', updateRuntimeHandler(localdbConfig));
+router.post('/replace', replaceHandler(localdbConfig));
+
+// sfcwrdb (194.1.31.3)
 router.get('/sfcwr/onoff', onoffHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/list', listHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/activelist', activelistHandler(sfcwrdbConfig, 'sfcwr'));
