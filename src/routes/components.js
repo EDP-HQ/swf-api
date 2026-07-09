@@ -28,6 +28,51 @@ const PART_KEY_TO_TYPE = {
   skipper_bearing_sb: 'SB'
 };
 
+function historyHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const rows = await database.executeStoredProcedure(
+        null,
+        dbConfig,
+        'sp_Components_SelectComponetsInfoHistory',
+        []
+      );
+
+      const list = Array.isArray(rows) ? rows : [];
+      if (list.length === 0) {
+        return res.json([]);
+      }
+
+      const partIds = [...new Set(list.map((row) => row.PART_ID).filter(Boolean))];
+      if (partIds.length === 0) {
+        return res.json(list);
+      }
+
+      const idList = partIds.map((id) => `'${String(id).replace(/'/g, "''")}'`).join(',');
+      const typeRows = await database.executeQuery(
+        null,
+        dbConfig,
+        `SELECT PART_ID, PART_TYPE FROM dbo.TB_COMPONENTS_TRACKER WHERE PART_ID IN (${idList})`
+      );
+      const typeById = new Map(
+        (typeRows || []).map((row) => [String(row.PART_ID), row.PART_TYPE])
+      );
+
+      const enriched = list.map((row) => ({
+        ...row,
+        PART_TYPE: typeById.get(String(row.PART_ID)) ?? null
+      }));
+
+      res.json(enriched);
+    } catch (error) {
+      console.error(`components/history${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
+    }
+  };
+}
+
 function selectHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
@@ -223,11 +268,13 @@ function insertHandler(dbConfig, logTag) {
 }
 
 router.get('/select', selectHandler(localdbConfig));
+router.get('/history', historyHandler(localdbConfig));
 router.post('/replace', replaceHandler(localdbConfig));
 router.post('/updateruntime', updateRuntimeHandler(localdbConfig));
 router.post('/updateruntimelimit', updateRuntimeLimitHandler(localdbConfig));
 router.post('/insert', insertHandler(localdbConfig));
 router.get('/sfcwr/select', selectHandler(sfcwrdbConfig, 'sfcwr'));
+router.get('/sfcwr/history', historyHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/replace', replaceHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntime', updateRuntimeHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntimelimit', updateRuntimeLimitHandler(sfcwrdbConfig, 'sfcwr'));
