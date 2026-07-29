@@ -114,8 +114,8 @@ function batchupdateruntimelimitHandler(dbConfig, logTag) {
       const { params = {} } = req.body || {};
       const { RollerID, RollerIDs, RuntimeLimit } = params;
 
-      if (RuntimeLimit == null) {
-        return res.status(400).json({ error: 'RuntimeLimit is required' });
+      if (RuntimeLimit == null || Number(RuntimeLimit) <= 0) {
+        return res.status(400).json({ error: 'RuntimeLimit is required and must be > 0' });
       }
 
       if (Array.isArray(RollerIDs) ? RollerIDs.length : typeof RollerIDs === 'string') {
@@ -129,9 +129,10 @@ function batchupdateruntimelimitHandler(dbConfig, logTag) {
 
         const parameters = [
           { name: 'RollerIds', value: idsCsv, type: sql.NVarChar(sql.MAX) },
-          { name: 'RuntimeLimit', value: Number(RuntimeLimit), type: sql.Decimal(18, 2) }
+          { name: 'RuntimeLimit', value: Number(RuntimeLimit), type: sql.Decimal(10, 2) }
         ];
-        return database.executeStoredProcedure(res, dbConfig, 'sp_Roller_Runtime_Limit_BatchUpdate', parameters);
+        await database.executeStoredProcedure(res, dbConfig, 'sp_Roller_Runtime_Limit_BatchUpdate', parameters);
+        return;
       }
 
       if (!RollerID) {
@@ -142,11 +143,14 @@ function batchupdateruntimelimitHandler(dbConfig, logTag) {
         { name: 'RollerId', value: String(RollerID), type: sql.VarChar(30) },
         { name: 'RuntimeLimit', value: Number(RuntimeLimit), type: sql.Decimal(18, 2) }
       ];
-      return database.executeStoredProcedure(res, dbConfig, 'sp_Roller_Runtime_Limit_Update', parameters);
+      await database.executeStoredProcedure(res, dbConfig, 'sp_Roller_Runtime_Limit_Update', parameters);
     } catch (error) {
       console.error(`roller/batchupdateruntimelimit${logTag ? ` (${logTag})` : ''}:`, error);
       if (!res.headersSent) {
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({
+          error: 'Stored procedure failed: sp_Roller_Runtime_Limit_BatchUpdate',
+          detail: error?.message || String(error)
+        });
       }
     }
   };
