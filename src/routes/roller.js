@@ -80,15 +80,29 @@ function historyHandler(dbConfig, logTag) {
 function updateruntimelimitHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
+      const { params = {} } = req.body || {};
+      const rollerId = params.RollerID ?? params.RollerId ?? params.rollerId ?? null;
+      const runtimeLimit = params.RuntimeLimit ?? params.runtimeLimit ?? null;
+
+      if (!rollerId) {
+        return res.status(400).json({ error: 'RollerID is required' });
+      }
+      if (runtimeLimit == null || Number(runtimeLimit) <= 0) {
+        return res.status(400).json({ error: 'RuntimeLimit is required and must be > 0' });
+      }
+
       const parameters = [
-        { name: 'RollerId', value: req.body.params.RollerID },
-        { name: 'RuntimeLimit', value: req.body.params.RuntimeLimit }
+        { name: 'RollerId', value: String(rollerId), type: sql.VarChar(30) },
+        { name: 'RuntimeLimit', value: Number(runtimeLimit), type: sql.Decimal(18, 2) }
       ];
       await database.executeStoredProcedure(res, dbConfig, 'sp_Roller_Runtime_Limit_Update', parameters);
     } catch (error) {
       console.error(`roller/updateruntimelimit${logTag ? ` (${logTag})` : ''}:`, error);
       if (!res.headersSent) {
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({
+          error: 'Stored procedure failed: sp_Roller_Runtime_Limit_Update',
+          detail: error?.message || String(error)
+        });
       }
     }
   };
@@ -114,8 +128,8 @@ function batchupdateruntimelimitHandler(dbConfig, logTag) {
         }
 
         const parameters = [
-          { name: 'RollerIds', value: idsCsv },
-          { name: 'RuntimeLimit', value: RuntimeLimit }
+          { name: 'RollerIds', value: idsCsv, type: sql.NVarChar(sql.MAX) },
+          { name: 'RuntimeLimit', value: Number(RuntimeLimit), type: sql.Decimal(18, 2) }
         ];
         return database.executeStoredProcedure(res, dbConfig, 'sp_Roller_Runtime_Limit_BatchUpdate', parameters);
       }
@@ -125,8 +139,8 @@ function batchupdateruntimelimitHandler(dbConfig, logTag) {
       }
 
       const parameters = [
-        { name: 'RollerId', value: RollerID },
-        { name: 'RuntimeLimit', value: RuntimeLimit }
+        { name: 'RollerId', value: String(RollerID), type: sql.VarChar(30) },
+        { name: 'RuntimeLimit', value: Number(RuntimeLimit), type: sql.Decimal(18, 2) }
       ];
       return database.executeStoredProcedure(res, dbConfig, 'sp_Roller_Runtime_Limit_Update', parameters);
     } catch (error) {
