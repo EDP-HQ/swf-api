@@ -267,14 +267,80 @@ function insertHandler(dbConfig, logTag) {
   };
 }
 
+function machinesSelectHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const q = req.query || {};
+      const processCd = q.process_cd ?? q.processCd ?? q.ProcessCd ?? null;
+      const lineCd = q.line_cd ?? q.lineCd ?? q.LineCd ?? null;
+      const useYn = q.use_yn ?? q.useYn ?? q.UseYn ?? 'Y';
+
+      const parameters = [
+        { name: 'ProcessCd', value: processCd || null },
+        { name: 'LineCd', value: lineCd || null },
+        { name: 'UseYn', value: useYn || null }
+      ];
+
+      await database.executeStoredProcedure(res, dbConfig, 'sp_CmMachine_Select', parameters);
+    } catch (error) {
+      console.error(`components/machines${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
+    }
+  };
+}
+
+function machinesInsertHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const { params = {} } = req.body || {};
+      const company = params.Company ?? params.company ?? 'KSB';
+      const factory = params.Factory ?? params.factory ?? 'F002';
+      const processCd = params.ProcessCd ?? params.processCd ?? params.process_cd ?? null;
+      const lineCd = params.LineCd ?? params.lineCd ?? params.line_cd ?? null;
+      const machineNm = params.MachineNm ?? params.MachineName ?? params.machineNm ?? null;
+
+      if (!processCd) {
+        return res.status(400).json({ error: 'ProcessCd is required' });
+      }
+      if (!machineNm) {
+        return res.status(400).json({ error: 'MachineName is required' });
+      }
+
+      const parameters = [
+        { name: 'Company', value: String(company), type: sql.VarChar(10) },
+        { name: 'Factory', value: String(factory), type: sql.VarChar(20) },
+        { name: 'ProcessCd', value: String(processCd), type: sql.VarChar(20) },
+        { name: 'LineCd', value: lineCd ? String(lineCd) : null, type: sql.VarChar(20) },
+        { name: 'MachineNm', value: String(machineNm), type: sql.NVarChar(100) }
+      ];
+
+      await database.executeStoredProcedure(res, dbConfig, 'sp_CmMachine_Insert', parameters);
+    } catch (error) {
+      console.error(`components/machines/insert${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Stored procedure failed: sp_CmMachine_Insert',
+          detail: error?.message || String(error)
+        });
+      }
+    }
+  };
+}
+
 router.get('/select', selectHandler(localdbConfig));
 router.get('/history', historyHandler(localdbConfig));
+router.get('/machines', machinesSelectHandler(localdbConfig));
+router.post('/machines', machinesInsertHandler(localdbConfig));
 router.post('/replace', replaceHandler(localdbConfig));
 router.post('/updateruntime', updateRuntimeHandler(localdbConfig));
 router.post('/updateruntimelimit', updateRuntimeLimitHandler(localdbConfig));
 router.post('/insert', insertHandler(localdbConfig));
 router.get('/sfcwr/select', selectHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/history', historyHandler(sfcwrdbConfig, 'sfcwr'));
+router.get('/sfcwr/machines', machinesSelectHandler(sfcwrdbConfig, 'sfcwr'));
+router.post('/sfcwr/machines', machinesInsertHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/replace', replaceHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntime', updateRuntimeHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntimelimit', updateRuntimeLimitHandler(sfcwrdbConfig, 'sfcwr'));
