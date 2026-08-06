@@ -25,10 +25,24 @@ function onoffHandler(dbConfig, logTag) {
   };
 }
 
+function processQueryParams(q) {
+  const processCd = q.process_cd ?? q.processCd ?? q.ProcessCd ?? null;
+  const lineCd = q.line_cd ?? q.lineCd ?? q.LineCd ?? null;
+  return {
+    processCd: processCd ? String(processCd).trim().toUpperCase() : null,
+    lineCd: lineCd ? String(lineCd).trim().toUpperCase() : null
+  };
+}
+
 function listHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
-      await database.executeStoredProcedure(res, dbConfig, 'sp_RollerTracker_SelectRoller', []);
+      const { processCd, lineCd } = processQueryParams(req.query || {});
+      const parameters = [
+        { name: 'ProcessCd', value: processCd || 'STRANDING', type: sql.VarChar(20) },
+        { name: 'LineCd', value: lineCd || null, type: sql.VarChar(20) }
+      ];
+      await database.executeStoredProcedure(res, dbConfig, 'sp_RollerTracker_SelectRoller', parameters);
     } catch (error) {
       console.error(`roller/list${logTag ? ` (${logTag})` : ''}:`, error);
       if (!res.headersSent) {
@@ -41,7 +55,12 @@ function listHandler(dbConfig, logTag) {
 function activelistHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
-      await database.executeStoredProcedure(res, dbConfig, 'sp_RollerTracker_ActiveRoller', []);
+      const { processCd, lineCd } = processQueryParams(req.query || {});
+      const parameters = [
+        { name: 'ProcessCd', value: processCd || 'STRANDING', type: sql.VarChar(20) },
+        { name: 'LineCd', value: lineCd || null, type: sql.VarChar(20) }
+      ];
+      await database.executeStoredProcedure(res, dbConfig, 'sp_RollerTracker_ActiveRoller', parameters);
     } catch (error) {
       console.error(`roller/activelist${logTag ? ` (${logTag})` : ''}:`, error);
       if (!res.headersSent) {
@@ -54,7 +73,14 @@ function activelistHandler(dbConfig, logTag) {
 function currentruntimeHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
-      await database.executeStoredProcedure(res, dbConfig, 'sp_Roller_Curr_Runtime', []);
+      const { processCd, lineCd } = processQueryParams(req.query || {});
+      const parameters = [
+        { name: 'RollerId', value: null, type: sql.VarChar(30) },
+        { name: 'OnlyActive', value: 1, type: sql.Bit },
+        { name: 'ProcessCd', value: processCd || null, type: sql.VarChar(20) },
+        { name: 'LineCd', value: lineCd || null, type: sql.VarChar(20) }
+      ];
+      await database.executeStoredProcedure(res, dbConfig, 'sp_Roller_Curr_Runtime', parameters);
     } catch (error) {
       console.error(`roller/currentruntime${logTag ? ` (${logTag})` : ''}:`, error);
       if (!res.headersSent) {

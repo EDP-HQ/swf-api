@@ -1,10 +1,5 @@
 /*
-    Replace an active component:
-      1. Set former row [USE] = 'N' and DISMANTLE_DT = now
-      2. Insert new row with RUNTIME_SEC = 0, [USE] = 'Y', and PART_SEQ = MAX(active PART_SEQ) + 1
-
-    Identify the active row by @PartId OR (@MachineNm + @PartSeq).
-    Returns the newly inserted row.
+    Replace an active component; copies PROCESS_CD / LINE_CD onto the new row.
 */
 
 USE SFC_WR_DB;
@@ -36,13 +31,15 @@ BEGIN
     DECLARE @Factory    VARCHAR(20);
     DECLARE @PartType   VARCHAR(20);
     DECLARE @Machine    NVARCHAR(100);
-    DECLARE @Seq        INT;
+    DECLARE @ProcessCd  VARCHAR(20);
+    DECLARE @LineCd     VARCHAR(20);
     DECLARE @Limit      DECIMAL(12, 2);
     DECLARE @Now        DATETIME = GETDATE();
     DECLARE @ReplaceDt  DATETIME = CAST(@Now AS DATE);
     DECLARE @YearPrefix VARCHAR(4) = CONVERT(VARCHAR(4), YEAR(@Now));
     DECLARE @NewPartId  VARCHAR(20);
     DECLARE @NextSeq    INT;
+    DECLARE @NewPartSeq INT;
 
     SELECT TOP 1
         @OldPartId = PART_ID,
@@ -50,7 +47,8 @@ BEGIN
         @Factory = FACTORY,
         @PartType = PART_TYPE,
         @Machine = MACHINE_NM,
-        @Seq = PART_SEQ,
+        @ProcessCd = PROCESS_CD,
+        @LineCd = LINE_CD,
         @Limit = RUNTIME_LIMIT_HOUR
     FROM dbo.TB_COMPONENTS_TRACKER WITH (UPDLOCK, HOLDLOCK)
     WHERE [USE] = 'Y'
@@ -69,22 +67,23 @@ BEGIN
         RETURN;
     END;
 
+    IF @ProcessCd IS NULL SET @ProcessCd = 'STRANDING';
+    IF @ProcessCd = 'STRANDING' AND @LineCd IS NULL SET @LineCd = 'BUNCHER';
+
     IF @RuntimeLimitHour IS NOT NULL AND @RuntimeLimitHour > 0
         SET @Limit = @RuntimeLimitHour;
-
-    DECLARE @NewPartSeq INT;
 
     SELECT @NewPartSeq = ISNULL(MAX(PART_SEQ), 0) + 1
     FROM dbo.TB_COMPONENTS_TRACKER WITH (UPDLOCK, HOLDLOCK)
     WHERE [USE] = 'Y'
-      AND MACHINE_NM = @Machine;
+      AND MACHINE_NM = @Machine
+      AND PROCESS_CD = @ProcessCd
+      AND ((@LineCd IS NULL AND LINE_CD IS NULL) OR LINE_CD = @LineCd);
 
     BEGIN TRAN;
 
     UPDATE dbo.TB_COMPONENTS_TRACKER
-    SET
-        [USE] = 'N',
-        DISMANTLE_DT = @Now
+    SET [USE] = 'N', DISMANTLE_DT = @Now
     WHERE PART_ID = @OldPartId;
 
     SELECT @NextSeq = ISNULL(MAX(CAST(RIGHT(PART_ID, 5) AS INT)), 0) + 1
@@ -95,47 +94,23 @@ BEGIN
 
     INSERT INTO dbo.TB_COMPONENTS_TRACKER
     (
-        COMPANY,
-        FACTORY,
-        PART_ID,
-        PART_SEQ,
-        PART_TYPE,
-        MACHINE_NM,
-        REPLACE_DT,
-        DISMANTLE_DT,
-        RUNTIME_LIMIT_HOUR,
-        RUNTIME_SEC,
-        [USE]
+        COMPANY, FACTORY, PART_ID, PART_SEQ, PART_TYPE, MACHINE_NM,
+        PROCESS_CD, LINE_CD,
+        REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE]
     )
     VALUES
     (
-        @Company,
-        @Factory,
-        @NewPartId,
-        @NewPartSeq,
-        @PartType,
-        @Machine,
-        @ReplaceDt,
-        NULL,
-        @Limit,
-        0,
-        'Y'
+        @Company, @Factory, @NewPartId, @NewPartSeq, @PartType, @Machine,
+        @ProcessCd, @LineCd,
+        @ReplaceDt, NULL, @Limit, 0, 'Y'
     );
 
     COMMIT;
 
     SELECT
-        COMPANY,
-        FACTORY,
-        PART_ID,
-        PART_SEQ,
-        PART_TYPE,
-        MACHINE_NM,
-        REPLACE_DT,
-        DISMANTLE_DT,
-        RUNTIME_LIMIT_HOUR,
-        RUNTIME_SEC,
-        [USE]
+        COMPANY, FACTORY, PART_ID, PART_SEQ, PART_TYPE, MACHINE_NM,
+        PROCESS_CD, LINE_CD,
+        REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE]
     FROM dbo.TB_COMPONENTS_TRACKER
     WHERE PART_ID = @NewPartId;
 END;

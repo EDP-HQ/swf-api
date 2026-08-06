@@ -80,11 +80,15 @@ function selectHandler(dbConfig, logTag) {
       const company = q.company ?? q.Company ?? q.COMPANY ?? null;
       const factory = q.factory ?? q.Factory ?? q.FACTORY ?? null;
       const machineNm = q.machine_nm ?? q.machineNm ?? q.MachineNm ?? q.MACHINE_NM ?? null;
+      const processCd = q.process_cd ?? q.processCd ?? q.ProcessCd ?? null;
+      const lineCd = q.line_cd ?? q.lineCd ?? q.LineCd ?? null;
 
       const parameters = [
         { name: 'Company', value: company || null },
         { name: 'Factory', value: factory || null },
-        { name: 'MachineNm', value: machineNm || null }
+        { name: 'MachineNm', value: machineNm || null },
+        { name: 'ProcessCd', value: processCd ? String(processCd).toUpperCase() : null, type: sql.VarChar(20) },
+        { name: 'LineCd', value: lineCd ? String(lineCd).toUpperCase() : null, type: sql.VarChar(20) }
       ];
 
       await database.executeStoredProcedure(res, dbConfig, 'sp_Components_Select', parameters);
@@ -237,6 +241,9 @@ function insertHandler(dbConfig, logTag) {
         partType = PART_KEY_TO_TYPE[partKey] ?? null;
       }
 
+      const processCd = params.ProcessCd ?? params.processCd ?? params.process_cd ?? null;
+      const lineCd = params.LineCd ?? params.lineCd ?? params.line_cd ?? null;
+
       if (!machineNm) {
         return res.status(400).json({ error: 'MachineName is required' });
       }
@@ -254,7 +261,17 @@ function insertHandler(dbConfig, logTag) {
         { name: 'Factory', value: factory },
         { name: 'MachineNm', value: machineNm },
         { name: 'PartType', value: partType },
-        { name: 'RuntimeLimitHour', value: runtimeLimit, type: sql.Decimal(12, 2) }
+        { name: 'RuntimeLimitHour', value: runtimeLimit, type: sql.Decimal(12, 2) },
+        {
+          name: 'ProcessCd',
+          value: processCd ? String(processCd).toUpperCase() : 'STRANDING',
+          type: sql.VarChar(20)
+        },
+        {
+          name: 'LineCd',
+          value: lineCd ? String(lineCd).toUpperCase() : null,
+          type: sql.VarChar(20)
+        }
       ];
 
       await database.executeStoredProcedure(res, dbConfig, 'sp_Components_Insert', parameters);
