@@ -82,13 +82,19 @@ function selectHandler(dbConfig, logTag) {
       const machineNm = q.machine_nm ?? q.machineNm ?? q.MachineNm ?? q.MACHINE_NM ?? null;
       const processCd = q.process_cd ?? q.processCd ?? q.ProcessCd ?? null;
       const lineCd = q.line_cd ?? q.lineCd ?? q.LineCd ?? null;
+      const process = processCd ? String(processCd).toUpperCase() : null;
+      const line = lineCd ? String(lineCd).toUpperCase() : null;
+
+      if (process === 'STRANDING' && !line) {
+        return res.status(400).json({ error: 'line_cd is required for STRANDING (BUNCHER or TUBULAR)' });
+      }
 
       const parameters = [
         { name: 'Company', value: company || null },
         { name: 'Factory', value: factory || null },
         { name: 'MachineNm', value: machineNm || null },
-        { name: 'ProcessCd', value: processCd ? String(processCd).toUpperCase() : null, type: sql.VarChar(20) },
-        { name: 'LineCd', value: lineCd ? String(lineCd).toUpperCase() : null, type: sql.VarChar(20) }
+        { name: 'ProcessCd', value: process, type: sql.VarChar(20) },
+        { name: 'LineCd', value: line, type: sql.VarChar(20) }
       ];
 
       await database.executeStoredProcedure(res, dbConfig, 'sp_Components_Select', parameters);
@@ -288,14 +294,28 @@ function machinesSelectHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
       const q = req.query || {};
-      const processCd = q.process_cd ?? q.processCd ?? q.ProcessCd ?? null;
-      const lineCd = q.line_cd ?? q.lineCd ?? q.LineCd ?? null;
+      const processCd = (q.process_cd ?? q.processCd ?? q.ProcessCd ?? null)
+        ? String(q.process_cd ?? q.processCd ?? q.ProcessCd).trim().toUpperCase()
+        : null;
+      const lineCd = (q.line_cd ?? q.lineCd ?? q.LineCd ?? null)
+        ? String(q.line_cd ?? q.lineCd ?? q.LineCd).trim().toUpperCase()
+        : null;
       const useYn = q.use_yn ?? q.useYn ?? q.UseYn ?? 'Y';
+      const includeHidden =
+        q.include_hidden === '1' ||
+        q.includeHidden === '1' ||
+        q.include_hidden === 'true' ||
+        q.includeHidden === true;
+
+      if (processCd === 'STRANDING' && !lineCd) {
+        return res.status(400).json({ error: 'line_cd is required for STRANDING (BUNCHER or TUBULAR)' });
+      }
 
       const parameters = [
-        { name: 'ProcessCd', value: processCd || null },
-        { name: 'LineCd', value: lineCd || null },
-        { name: 'UseYn', value: useYn || null }
+        { name: 'ProcessCd', value: processCd || null, type: sql.VarChar(20) },
+        { name: 'LineCd', value: lineCd || null, type: sql.VarChar(20) },
+        { name: 'UseYn', value: includeHidden ? null : useYn || 'Y', type: sql.Char(1) },
+        { name: 'IncludeHidden', value: includeHidden ? 1 : 0, type: sql.Bit }
       ];
 
       await database.executeStoredProcedure(res, dbConfig, 'sp_CmMachine_Select', parameters);
@@ -303,6 +323,43 @@ function machinesSelectHandler(dbConfig, logTag) {
       console.error(`components/machines${logTag ? ` (${logTag})` : ''}:`, error);
       if (!res.headersSent) {
         res.status(500).json({ error: 'Internal Server Error' });
+      }
+    }
+  };
+}
+
+function machinesSetVisibleHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const { params = {} } = req.body || {};
+      const company = params.Company ?? params.company ?? 'KSB';
+      const factory = params.Factory ?? params.factory ?? 'F002';
+      const processCd = params.ProcessCd ?? params.processCd ?? params.process_cd ?? null;
+      const lineCd = params.LineCd ?? params.lineCd ?? params.line_cd ?? null;
+      const machineNm = params.MachineNm ?? params.MachineName ?? params.machineNm ?? null;
+      const visibleYn = params.VisibleYn ?? params.visibleYn ?? params.visible_yn ?? null;
+
+      if (!processCd || !machineNm || !visibleYn) {
+        return res.status(400).json({ error: 'ProcessCd, MachineName and VisibleYn are required' });
+      }
+
+      const parameters = [
+        { name: 'Company', value: String(company), type: sql.VarChar(10) },
+        { name: 'Factory', value: String(factory), type: sql.VarChar(20) },
+        { name: 'ProcessCd', value: String(processCd).toUpperCase(), type: sql.VarChar(20) },
+        { name: 'LineCd', value: lineCd ? String(lineCd).toUpperCase() : null, type: sql.VarChar(20) },
+        { name: 'MachineNm', value: String(machineNm), type: sql.NVarChar(100) },
+        { name: 'VisibleYn', value: String(visibleYn).toUpperCase(), type: sql.Char(1) }
+      ];
+
+      await database.executeStoredProcedure(res, dbConfig, 'sp_CmMachine_SetVisible', parameters);
+    } catch (error) {
+      console.error(`components/machines/visible${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Stored procedure failed: sp_CmMachine_SetVisible',
+          detail: error?.message || String(error)
+        });
       }
     }
   };
@@ -350,6 +407,7 @@ router.get('/select', selectHandler(localdbConfig));
 router.get('/history', historyHandler(localdbConfig));
 router.get('/machines', machinesSelectHandler(localdbConfig));
 router.post('/machines', machinesInsertHandler(localdbConfig));
+router.post('/machines/visible', machinesSetVisibleHandler(localdbConfig));
 router.post('/replace', replaceHandler(localdbConfig));
 router.post('/updateruntime', updateRuntimeHandler(localdbConfig));
 router.post('/updateruntimelimit', updateRuntimeLimitHandler(localdbConfig));
@@ -358,6 +416,7 @@ router.get('/sfcwr/select', selectHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/history', historyHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/machines', machinesSelectHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/machines', machinesInsertHandler(sfcwrdbConfig, 'sfcwr'));
+router.post('/sfcwr/machines/visible', machinesSetVisibleHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/replace', replaceHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntime', updateRuntimeHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntimelimit', updateRuntimeLimitHandler(sfcwrdbConfig, 'sfcwr'));

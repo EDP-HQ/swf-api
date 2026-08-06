@@ -28,6 +28,16 @@ BEGIN
     SET @ProcessCd = UPPER(NULLIF(LTRIM(RTRIM(@ProcessCd)), ''));
     SET @LineCd = UPPER(NULLIF(LTRIM(RTRIM(@LineCd)), ''));
 
+    -- Stranding without line must not return Buncher+Tubular together
+    IF @ProcessCd = 'STRANDING' AND @LineCd IS NULL
+    BEGIN
+        SELECT TOP 0
+            COMPANY, FACTORY, PART_ID, PART_SEQ, PART_TYPE, MACHINE_NM,
+            PROCESS_CD, LINE_CD, REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE]
+        FROM dbo.TB_COMPONENTS_TRACKER;
+        RETURN;
+    END;
+
     SELECT
         COMPANY,
         FACTORY,
@@ -49,9 +59,13 @@ BEGIN
       AND (@MachineNm IS NULL OR MACHINE_NM = @MachineNm)
       AND (@ProcessCd IS NULL OR PROCESS_CD = @ProcessCd)
       AND (
-            @LineCd IS NULL
+            @ProcessCd IS NULL
+            OR @ProcessCd <> 'STRANDING'
             OR LINE_CD = @LineCd
-            OR (@LineCd = '' AND LINE_CD IS NULL)
+          )
+      AND (
+            @ProcessCd = 'STRANDING'
+            OR LINE_CD IS NULL
           )
     ORDER BY MACHINE_NM, PART_SEQ;
 END;
