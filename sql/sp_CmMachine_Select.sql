@@ -45,11 +45,13 @@ BEGIN
     WHERE (@IncludeHidden = 1 OR @UseYn IS NULL OR USE_YN = @UseYn)
       AND (@ProcessCd IS NULL OR PROCESS_CD = @ProcessCd)
       AND (
-            @ProcessCd <> 'STRANDING'
+            @ProcessCd IS NULL
+            OR @ProcessCd <> 'STRANDING'
             OR LINE_CD = @LineCd
           )
       AND (
-            @ProcessCd = 'STRANDING'
+            @ProcessCd IS NULL
+            OR @ProcessCd = 'STRANDING'
             OR LINE_CD IS NULL
           )
     ORDER BY PROCESS_CD, LINE_CD, MACHINE_NM;

@@ -70,6 +70,18 @@ BEGIN
     IF @ProcessCd IS NULL SET @ProcessCd = 'STRANDING';
     IF @ProcessCd = 'STRANDING' AND @LineCd IS NULL SET @LineCd = 'BUNCHER';
 
+    IF UPPER(LTRIM(RTRIM(@PartType))) = 'GEARBOX'
+       AND EXISTS (
+            SELECT 1
+            FROM dbo.TB_CM_GEARBOX_ASSET
+            WHERE PROCESS_CD = @ProcessCd
+              AND ((@LineCd IS NULL AND LINE_CD IS NULL) OR LINE_CD = @LineCd)
+       )
+    BEGIN
+        RAISERROR(N'Gearbox uses the pool swap API (sp_CmGearbox_Swap), not Components_Replace.', 16, 1);
+        RETURN;
+    END;
+
     IF @RuntimeLimitHour IS NOT NULL AND @RuntimeLimitHour > 0
         SET @Limit = @RuntimeLimitHour;
 

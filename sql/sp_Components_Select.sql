@@ -63,8 +63,10 @@ BEGIN
             OR @ProcessCd <> 'STRANDING'
             OR LINE_CD = @LineCd
           )
+      -- When process is set and not STRANDING, only unscoped (non-line) rows
       AND (
-            @ProcessCd = 'STRANDING'
+            @ProcessCd IS NULL
+            OR @ProcessCd = 'STRANDING'
             OR LINE_CD IS NULL
           )
     ORDER BY MACHINE_NM, PART_SEQ;
