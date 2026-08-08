@@ -198,10 +198,45 @@ function replaceHandler(dbConfig, logTag) {
       const machineNm = params.MachineNm ?? params.MachineName ?? params.machineNm ?? null;
       let partSeq = params.PartSeq ?? params.partSeq ?? null;
       const partKey = params.PartKey ?? params.partKey ?? null;
+      const partType = params.PartType ?? params.partType ?? null;
       const runtimeLimit = params.RuntimeLimit ?? params.RuntimeLimitHour ?? params.runtimeLimit ?? null;
+      const newGearboxId = params.NewGearboxId ?? params.newGearboxId ?? params.GearboxId ?? null;
+      const processCd = params.ProcessCd ?? params.processCd ?? params.process_cd ?? 'STRANDING';
+      const lineCd = params.LineCd ?? params.lineCd ?? params.line_cd ?? null;
 
       if (partSeq == null && partKey != null) {
         partSeq = PART_KEY_TO_SEQ[partKey] ?? null;
+      }
+
+      const looksLikeGearbox =
+        String(partKey || '').toLowerCase() === 'gearbox' ||
+        String(partType || '').toUpperCase() === 'GEARBOX';
+
+      // Gearbox pool: prefer explicit swap; never hit sp_Components_Replace
+      if (newGearboxId && machineNm) {
+        const parameters = [
+          { name: 'Company', value: String(params.Company ?? params.company ?? 'KSB'), type: sql.VarChar(10) },
+          { name: 'Factory', value: String(params.Factory ?? params.factory ?? 'F002'), type: sql.VarChar(20) },
+          { name: 'MachineNm', value: String(machineNm), type: sql.NVarChar(100) },
+          { name: 'NewGearboxId', value: String(newGearboxId).toUpperCase(), type: sql.VarChar(20) },
+          { name: 'ProcessCd', value: String(processCd).toUpperCase(), type: sql.VarChar(20) },
+          { name: 'LineCd', value: lineCd ? String(lineCd).toUpperCase() : null, type: sql.VarChar(20) },
+          {
+            name: 'RuntimeLimitHour',
+            value: runtimeLimit == null ? null : runtimeLimit,
+            type: sql.Decimal(12, 2)
+          },
+          { name: 'RemovedStatus', value: 'REPAIR', type: sql.VarChar(10) }
+        ];
+        await database.executeStoredProcedure(res, dbConfig, 'sp_CmGearbox_Swap', parameters);
+        return;
+      }
+
+      if (looksLikeGearbox) {
+        return res.status(400).json({
+          error:
+            'Gearbox uses the pool swap API. POST /components/sfcwr/gearbox/swap with MachineName and NewGearboxId (spare).'
+        });
       }
 
       if (!partId && (!machineNm || partSeq == null)) {
@@ -224,8 +259,17 @@ function replaceHandler(dbConfig, logTag) {
       await database.executeStoredProcedure(res, dbConfig, 'sp_Components_Replace', parameters);
     } catch (error) {
       console.error(`components/replace${logTag ? ` (${logTag})` : ''}:`, error);
+      const detail = error?.message || String(error);
       if (!res.headersSent) {
-        res.status(500).json({ error: 'Internal Server Error' });
+        if (detail.includes('pool swap API') || detail.includes('sp_CmGearbox_Swap')) {
+          res.status(400).json({
+            error:
+              'Gearbox uses the pool swap API. POST /components/sfcwr/gearbox/swap with MachineName and NewGearboxId (spare).',
+            detail
+          });
+          return;
+        }
+        res.status(500).json({ error: 'Internal Server Error', detail });
       }
     }
   };
