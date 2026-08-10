@@ -562,14 +562,83 @@ function gearboxSetStatusHandler(dbConfig, logTag) {
   };
 }
 
+function gearboxUpdateHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const { params = {} } = req.body || {};
+      const company = params.Company ?? params.company ?? 'KSB';
+      const factory = params.Factory ?? params.factory ?? 'F002';
+      const gearboxId = params.GearboxId ?? params.gearboxId ?? null;
+      const gearboxNm = params.GearboxNm ?? params.gearboxNm ?? params.Name ?? params.name ?? null;
+
+      if (!gearboxId || !gearboxNm) {
+        return res.status(400).json({ error: 'GearboxId and GearboxNm are required' });
+      }
+
+      const parameters = [
+        { name: 'Company', value: String(company), type: sql.VarChar(10) },
+        { name: 'Factory', value: String(factory), type: sql.VarChar(20) },
+        { name: 'GearboxId', value: String(gearboxId).toUpperCase(), type: sql.VarChar(20) },
+        { name: 'GearboxNm', value: String(gearboxNm), type: sql.NVarChar(100) }
+      ];
+
+      await database.executeStoredProcedure(res, dbConfig, 'sp_CmGearbox_Update', parameters);
+    } catch (error) {
+      console.error(`components/gearbox/update${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Stored procedure failed: sp_CmGearbox_Update',
+          detail: error?.message || String(error)
+        });
+      }
+    }
+  };
+}
+
+function gearboxHistoryHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const q = req.query || {};
+      const processCd = (q.process_cd ?? q.processCd ?? 'STRANDING')
+        ? String(q.process_cd ?? q.processCd ?? 'STRANDING').trim().toUpperCase()
+        : 'STRANDING';
+      const lineCd = (q.line_cd ?? q.lineCd ?? q.LineCd ?? null)
+        ? String(q.line_cd ?? q.lineCd ?? q.LineCd).trim().toUpperCase()
+        : null;
+      const gearboxId = (q.gearbox_id ?? q.gearboxId ?? q.GearboxId ?? null)
+        ? String(q.gearbox_id ?? q.gearboxId ?? q.GearboxId).trim().toUpperCase()
+        : null;
+
+      if (processCd === 'STRANDING' && !lineCd) {
+        return res.status(400).json({ error: 'line_cd is required for STRANDING' });
+      }
+
+      const parameters = [
+        { name: 'ProcessCd', value: processCd, type: sql.VarChar(20) },
+        { name: 'LineCd', value: lineCd || null, type: sql.VarChar(20) },
+        { name: 'GearboxId', value: gearboxId || null, type: sql.VarChar(20) }
+      ];
+
+      await database.executeStoredProcedure(res, dbConfig, 'sp_CmGearbox_History_Select', parameters);
+    } catch (error) {
+      console.error(`components/gearbox/history${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
+    }
+  };
+}
+
 router.get('/select', selectHandler(localdbConfig));
 router.get('/history', historyHandler(localdbConfig));
 router.get('/machines', machinesSelectHandler(localdbConfig));
 router.post('/machines', machinesInsertHandler(localdbConfig));
 router.post('/machines/visible', machinesSetVisibleHandler(localdbConfig));
 router.get('/gearbox', gearboxSelectHandler(localdbConfig));
+router.get('/gearbox/history', gearboxHistoryHandler(localdbConfig));
 router.post('/gearbox/swap', gearboxSwapHandler(localdbConfig));
 router.post('/gearbox/status', gearboxSetStatusHandler(localdbConfig));
+router.post('/gearbox/update', gearboxUpdateHandler(localdbConfig));
 router.post('/replace', replaceHandler(localdbConfig));
 router.post('/updateruntime', updateRuntimeHandler(localdbConfig));
 router.post('/updateruntimelimit', updateRuntimeLimitHandler(localdbConfig));
@@ -580,8 +649,10 @@ router.get('/sfcwr/machines', machinesSelectHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/machines', machinesInsertHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/machines/visible', machinesSetVisibleHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/gearbox', gearboxSelectHandler(sfcwrdbConfig, 'sfcwr'));
+router.get('/sfcwr/gearbox/history', gearboxHistoryHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/gearbox/swap', gearboxSwapHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/gearbox/status', gearboxSetStatusHandler(sfcwrdbConfig, 'sfcwr'));
+router.post('/sfcwr/gearbox/update', gearboxUpdateHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/replace', replaceHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntime', updateRuntimeHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntimelimit', updateRuntimeLimitHandler(sfcwrdbConfig, 'sfcwr'));

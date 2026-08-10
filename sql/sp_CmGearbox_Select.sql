@@ -42,6 +42,7 @@ BEGIN
         a.COMPANY,
         a.FACTORY,
         a.GEARBOX_ID,
+        GearboxNm = ISNULL(NULLIF(LTRIM(RTRIM(a.GEARBOX_NM)), N''), a.GEARBOX_ID),
         a.PROCESS_CD,
         a.LINE_CD,
         a.STATUS,

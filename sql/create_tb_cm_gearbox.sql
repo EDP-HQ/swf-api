@@ -17,6 +17,7 @@ BEGIN
         COMPANY              VARCHAR(10)   NOT NULL,
         FACTORY              VARCHAR(20)   NOT NULL,
         GEARBOX_ID           VARCHAR(20)   NOT NULL,
+        GEARBOX_NM           NVARCHAR(100) NULL,
         PROCESS_CD           VARCHAR(20)   NOT NULL,
         LINE_CD              VARCHAR(20)   NULL,
         STATUS               VARCHAR(10)   NOT NULL,  -- SPARE / IN_USE / REPAIR
