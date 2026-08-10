@@ -1,6 +1,6 @@
 /*
-    Mark gearbox REPAIR -> SPARE (or force status).
-    EXEC dbo.sp_CmGearbox_SetStatus @GearboxId='GB08', @Status='SPARE'
+    Mark gearbox SPARE / REPAIR / RETIRED (not IN_USE — use Swap for that).
+    EXEC dbo.sp_CmGearbox_SetStatus @GearboxId='GB08', @Status='RETIRED'
 */
 
 USE SFC_WR_DB;
@@ -31,9 +31,9 @@ BEGIN
         RETURN;
     END;
 
-    IF @Status NOT IN ('SPARE', 'REPAIR')
+    IF @Status NOT IN ('SPARE', 'REPAIR', 'RETIRED')
     BEGIN
-        RAISERROR(N'Status must be SPARE or REPAIR (use Swap for IN_USE).', 16, 1);
+        RAISERROR(N'Status must be SPARE, REPAIR or RETIRED (use Swap for IN_USE).', 16, 1);
         RETURN;
     END;
 

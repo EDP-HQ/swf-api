@@ -529,6 +529,45 @@ function gearboxSwapHandler(dbConfig, logTag) {
   };
 }
 
+function gearboxInsertHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const { params = {} } = req.body || {};
+      const company = params.Company ?? params.company ?? 'KSB';
+      const factory = params.Factory ?? params.factory ?? 'F002';
+      const gearboxId = params.GearboxId ?? params.gearboxId ?? null;
+      const gearboxNm = params.GearboxNm ?? params.gearboxNm ?? params.Name ?? params.name ?? null;
+      const processCd = params.ProcessCd ?? params.processCd ?? params.process_cd ?? 'STRANDING';
+      const lineCd = params.LineCd ?? params.lineCd ?? params.line_cd ?? 'BUNCHER';
+      const status = params.Status ?? params.status ?? 'SPARE';
+
+      if (!gearboxId) {
+        return res.status(400).json({ error: 'GearboxId is required' });
+      }
+
+      const parameters = [
+        { name: 'Company', value: String(company), type: sql.VarChar(10) },
+        { name: 'Factory', value: String(factory), type: sql.VarChar(20) },
+        { name: 'GearboxId', value: String(gearboxId).toUpperCase(), type: sql.VarChar(20) },
+        { name: 'GearboxNm', value: gearboxNm != null ? String(gearboxNm) : null, type: sql.NVarChar(100) },
+        { name: 'ProcessCd', value: String(processCd).toUpperCase(), type: sql.VarChar(20) },
+        { name: 'LineCd', value: lineCd != null ? String(lineCd).toUpperCase() : null, type: sql.VarChar(20) },
+        { name: 'Status', value: String(status).toUpperCase(), type: sql.VarChar(10) }
+      ];
+
+      await database.executeStoredProcedure(res, dbConfig, 'sp_CmGearbox_Insert', parameters);
+    } catch (error) {
+      console.error(`components/gearbox/insert${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Stored procedure failed: sp_CmGearbox_Insert',
+          detail: error?.message || String(error)
+        });
+      }
+    }
+  };
+}
+
 function gearboxSetStatusHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
@@ -639,6 +678,7 @@ router.get('/gearbox/history', gearboxHistoryHandler(localdbConfig));
 router.post('/gearbox/swap', gearboxSwapHandler(localdbConfig));
 router.post('/gearbox/status', gearboxSetStatusHandler(localdbConfig));
 router.post('/gearbox/update', gearboxUpdateHandler(localdbConfig));
+router.post('/gearbox/insert', gearboxInsertHandler(localdbConfig));
 router.post('/replace', replaceHandler(localdbConfig));
 router.post('/updateruntime', updateRuntimeHandler(localdbConfig));
 router.post('/updateruntimelimit', updateRuntimeLimitHandler(localdbConfig));
@@ -653,6 +693,7 @@ router.get('/sfcwr/gearbox/history', gearboxHistoryHandler(sfcwrdbConfig, 'sfcwr
 router.post('/sfcwr/gearbox/swap', gearboxSwapHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/gearbox/status', gearboxSetStatusHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/gearbox/update', gearboxUpdateHandler(sfcwrdbConfig, 'sfcwr'));
+router.post('/sfcwr/gearbox/insert', gearboxInsertHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/replace', replaceHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntime', updateRuntimeHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntimelimit', updateRuntimeLimitHandler(sfcwrdbConfig, 'sfcwr'));
