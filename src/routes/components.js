@@ -275,6 +275,44 @@ function replaceHandler(dbConfig, logTag) {
   };
 }
 
+function removeHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const { params = {} } = req.body || {};
+      const partId = params.PartId ?? params.PART_ID ?? params.partId ?? null;
+      const machineNm = params.MachineNm ?? params.MachineName ?? params.machineNm ?? null;
+      let partSeq = params.PartSeq ?? params.partSeq ?? null;
+      const partKey = params.PartKey ?? params.partKey ?? null;
+
+      if (partSeq == null && partKey != null) {
+        partSeq = PART_KEY_TO_SEQ[partKey] ?? null;
+      }
+
+      if (!partId && (!machineNm || partSeq == null)) {
+        return res.status(400).json({
+          error: 'PartId or both MachineName and PartKey/PartSeq are required'
+        });
+      }
+
+      const parameters = [
+        { name: 'PartId', value: partId || null },
+        { name: 'MachineNm', value: machineNm || null },
+        { name: 'PartSeq', value: partSeq, type: sql.Int }
+      ];
+
+      await database.executeStoredProcedure(res, dbConfig, 'sp_Components_Remove', parameters);
+    } catch (error) {
+      console.error(`components/remove${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Stored procedure failed: sp_Components_Remove',
+          detail: error?.message || String(error)
+        });
+      }
+    }
+  };
+}
+
 function insertHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
@@ -680,6 +718,7 @@ router.post('/gearbox/status', gearboxSetStatusHandler(localdbConfig));
 router.post('/gearbox/update', gearboxUpdateHandler(localdbConfig));
 router.post('/gearbox/insert', gearboxInsertHandler(localdbConfig));
 router.post('/replace', replaceHandler(localdbConfig));
+router.post('/remove', removeHandler(localdbConfig));
 router.post('/updateruntime', updateRuntimeHandler(localdbConfig));
 router.post('/updateruntimelimit', updateRuntimeLimitHandler(localdbConfig));
 router.post('/insert', insertHandler(localdbConfig));
@@ -695,6 +734,7 @@ router.post('/sfcwr/gearbox/status', gearboxSetStatusHandler(sfcwrdbConfig, 'sfc
 router.post('/sfcwr/gearbox/update', gearboxUpdateHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/gearbox/insert', gearboxInsertHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/replace', replaceHandler(sfcwrdbConfig, 'sfcwr'));
+router.post('/sfcwr/remove', removeHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntime', updateRuntimeHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntimelimit', updateRuntimeLimitHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/insert', insertHandler(sfcwrdbConfig, 'sfcwr'));
