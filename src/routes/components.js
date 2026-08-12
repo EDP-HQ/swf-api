@@ -748,6 +748,20 @@ function gearboxHistoryHandler(dbConfig, logTag) {
   };
 }
 
+function runtimeWorkerStatusHandler() {
+  return async (req, res) => {
+    try {
+      const worker = require('../workers/componentRuntimeWorker');
+      res.json(worker.getStatus());
+    } catch (error) {
+      console.error('components/runtime-worker:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
+    }
+  };
+}
+
 function onoffHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
@@ -781,6 +795,7 @@ function onoffHandler(dbConfig, logTag) {
 router.get('/select', selectHandler(localdbConfig));
 router.get('/history', historyHandler(localdbConfig));
 router.get('/onoff', onoffHandler(localdbConfig));
+router.get('/runtime-worker', runtimeWorkerStatusHandler());
 router.get('/machines', machinesSelectHandler(localdbConfig));
 router.post('/machines', machinesInsertHandler(localdbConfig));
 router.post('/machines/visible', machinesSetVisibleHandler(localdbConfig));
@@ -799,6 +814,7 @@ router.post('/insert', insertHandler(localdbConfig));
 router.get('/sfcwr/select', selectHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/history', historyHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/onoff', onoffHandler(sfcwrdbConfig, 'sfcwr'));
+router.get('/sfcwr/runtime-worker', runtimeWorkerStatusHandler());
 router.get('/sfcwr/machines', machinesSelectHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/machines', machinesInsertHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/machines/visible', machinesSetVisibleHandler(sfcwrdbConfig, 'sfcwr'));
