@@ -706,8 +706,39 @@ function gearboxHistoryHandler(dbConfig, logTag) {
   };
 }
 
+function onoffHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const q = req.query || {};
+      const processCd = (q.process_cd ?? q.processCd ?? q.ProcessCd ?? null)
+        ? String(q.process_cd ?? q.processCd ?? q.ProcessCd).trim().toUpperCase()
+        : null;
+      const lineCd = (q.line_cd ?? q.lineCd ?? q.LineCd ?? null)
+        ? String(q.line_cd ?? q.lineCd ?? q.LineCd).trim().toUpperCase()
+        : null;
+
+      if (processCd === 'STRANDING' && !lineCd) {
+        return res.status(400).json({ error: 'line_cd is required for STRANDING (BUNCHER or TUBULAR)' });
+      }
+
+      const parameters = [
+        { name: 'ProcessCd', value: processCd || null, type: sql.VarChar(20) },
+        { name: 'LineCd', value: lineCd || null, type: sql.VarChar(20) }
+      ];
+
+      await database.executeStoredProcedure(res, dbConfig, 'sp_Components_Run_ONOFF', parameters);
+    } catch (error) {
+      console.error(`components/onoff${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
+    }
+  };
+}
+
 router.get('/select', selectHandler(localdbConfig));
 router.get('/history', historyHandler(localdbConfig));
+router.get('/onoff', onoffHandler(localdbConfig));
 router.get('/machines', machinesSelectHandler(localdbConfig));
 router.post('/machines', machinesInsertHandler(localdbConfig));
 router.post('/machines/visible', machinesSetVisibleHandler(localdbConfig));
@@ -724,6 +755,7 @@ router.post('/updateruntimelimit', updateRuntimeLimitHandler(localdbConfig));
 router.post('/insert', insertHandler(localdbConfig));
 router.get('/sfcwr/select', selectHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/history', historyHandler(sfcwrdbConfig, 'sfcwr'));
+router.get('/sfcwr/onoff', onoffHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/machines', machinesSelectHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/machines', machinesInsertHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/machines/visible', machinesSetVisibleHandler(sfcwrdbConfig, 'sfcwr'));
