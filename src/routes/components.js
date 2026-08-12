@@ -447,6 +447,48 @@ function machinesSetVisibleHandler(dbConfig, logTag) {
   };
 }
 
+function machinesRenameHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const { params = {} } = req.body || {};
+      const company = params.Company ?? params.company ?? 'KSB';
+      const factory = params.Factory ?? params.factory ?? 'F002';
+      const processCd = params.ProcessCd ?? params.processCd ?? params.process_cd ?? null;
+      const lineCd = params.LineCd ?? params.lineCd ?? params.line_cd ?? null;
+      const oldMachineNm =
+        params.OldMachineNm ?? params.OldMachineName ?? params.oldMachineNm ?? params.old_machine_nm ?? null;
+      const newMachineNm =
+        params.NewMachineNm ?? params.NewMachineName ?? params.newMachineNm ?? params.new_machine_nm ?? null;
+
+      if (!processCd) {
+        return res.status(400).json({ error: 'ProcessCd is required' });
+      }
+      if (!oldMachineNm || !newMachineNm) {
+        return res.status(400).json({ error: 'OldMachineName and NewMachineName are required' });
+      }
+
+      const parameters = [
+        { name: 'Company', value: String(company), type: sql.VarChar(10) },
+        { name: 'Factory', value: String(factory), type: sql.VarChar(20) },
+        { name: 'ProcessCd', value: String(processCd).toUpperCase(), type: sql.VarChar(20) },
+        { name: 'LineCd', value: lineCd ? String(lineCd).toUpperCase() : null, type: sql.VarChar(20) },
+        { name: 'OldMachineNm', value: String(oldMachineNm), type: sql.NVarChar(100) },
+        { name: 'NewMachineNm', value: String(newMachineNm), type: sql.NVarChar(100) }
+      ];
+
+      await database.executeStoredProcedure(res, dbConfig, 'sp_CmMachine_Rename', parameters);
+    } catch (error) {
+      console.error(`components/machines/rename${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Stored procedure failed: sp_CmMachine_Rename',
+          detail: error?.message || String(error)
+        });
+      }
+    }
+  };
+}
+
 function machinesInsertHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
@@ -742,6 +784,7 @@ router.get('/onoff', onoffHandler(localdbConfig));
 router.get('/machines', machinesSelectHandler(localdbConfig));
 router.post('/machines', machinesInsertHandler(localdbConfig));
 router.post('/machines/visible', machinesSetVisibleHandler(localdbConfig));
+router.post('/machines/rename', machinesRenameHandler(localdbConfig));
 router.get('/gearbox', gearboxSelectHandler(localdbConfig));
 router.get('/gearbox/history', gearboxHistoryHandler(localdbConfig));
 router.post('/gearbox/swap', gearboxSwapHandler(localdbConfig));
@@ -759,6 +802,7 @@ router.get('/sfcwr/onoff', onoffHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/machines', machinesSelectHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/machines', machinesInsertHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/machines/visible', machinesSetVisibleHandler(sfcwrdbConfig, 'sfcwr'));
+router.post('/sfcwr/machines/rename', machinesRenameHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/gearbox', gearboxSelectHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/gearbox/history', gearboxHistoryHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/gearbox/swap', gearboxSwapHandler(sfcwrdbConfig, 'sfcwr'));
