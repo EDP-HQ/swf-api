@@ -322,6 +322,7 @@ function insertHandler(dbConfig, logTag) {
       const machineNm = params.MachineNm ?? params.MachineName ?? params.machineNm ?? null;
       const partKey = params.PartKey ?? params.partKey ?? null;
       let partType = params.PartType ?? params.partType ?? null;
+      const partDetails = params.PartDetails ?? params.partDetails ?? params.PART_DETAILS ?? null;
       const runtimeLimit =
         params.RuntimeLimit ?? params.RuntimeLimitHour ?? params.runtimeLimit ?? null;
 
@@ -348,7 +349,7 @@ function insertHandler(dbConfig, logTag) {
         { name: 'Company', value: company },
         { name: 'Factory', value: factory },
         { name: 'MachineNm', value: machineNm },
-        { name: 'PartType', value: partType },
+        { name: 'PartType', value: String(partType).trim(), type: sql.NVarChar(100) },
         { name: 'RuntimeLimitHour', value: runtimeLimit, type: sql.Decimal(12, 2) },
         {
           name: 'ProcessCd',
@@ -359,6 +360,11 @@ function insertHandler(dbConfig, logTag) {
           name: 'LineCd',
           value: lineCd ? String(lineCd).toUpperCase() : null,
           type: sql.VarChar(20)
+        },
+        {
+          name: 'PartDetails',
+          value: partDetails != null && String(partDetails).trim() !== '' ? String(partDetails).trim() : null,
+          type: sql.NVarChar(500)
         }
       ];
 

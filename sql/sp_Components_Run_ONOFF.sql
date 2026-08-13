@@ -42,7 +42,7 @@ BEGIN
             m.MACHINE_DESC,
             m.MACHINE_DESC_SHORT,
             m.PROCESS_ID,
-            MachineName = LTRIM(RTRIM(
+            RawName = LTRIM(RTRIM(
                 CASE
                     WHEN UPPER(LEFT(LTRIM(m.MACHINE_DESC), 4)) = N'SWF '
                         THEN SUBSTRING(LTRIM(m.MACHINE_DESC), 5, 400)
@@ -53,6 +53,23 @@ BEGIN
         WHERE ISNULL(m.USE_YN, N'Y') = N'Y'
           AND (@ProcessId IS NULL OR m.PROCESS_ID = @ProcessId)
     ),
+    named AS (
+        SELECT
+            MACHINE_CD,
+            MACHINE_DESC,
+            MACHINE_DESC_SHORT,
+            PROCESS_ID,
+            -- Prefer core name so registry "12X12C" matches plant "12X12C(T)"
+            MachineName = LTRIM(RTRIM(
+                CASE
+                    WHEN CHARINDEX(N'(', RawName) > 0
+                        THEN LEFT(RawName, CHARINDEX(N'(', RawName) - 1)
+                    ELSE RawName
+                END
+            )),
+            RawName
+        FROM cd
+    ),
     latest AS (
         SELECT
             r.MACHINE_NO,
@@ -61,22 +78,23 @@ BEGIN
             r.END_TIME,
             rn = ROW_NUMBER() OVER (PARTITION BY r.MACHINE_NO ORDER BY r.START_TIME DESC)
         FROM dbo.TB_RUN_DOWN_COLLECTION r
-        INNER JOIN cd ON cd.MACHINE_CD = r.MACHINE_NO
+        INNER JOIN named n ON n.MACHINE_CD = r.MACHINE_NO
     )
     SELECT
         CAST(NULL AS BIGINT) AS RUNDN_ID,
-        cd.MACHINE_CD AS MACHINE_NO,
-        cd.MachineName,
+        n.MACHINE_CD AS MACHINE_NO,
+        n.MachineName,
         ISNULL(l.RUN_DN_TYPE, N'00') AS RUN_DN_TYPE,
         l.START_TIME,
         l.END_TIME,
-        cd.MACHINE_DESC,
-        cd.MACHINE_DESC_SHORT,
-        cd.PROCESS_ID
-    FROM cd
+        n.MACHINE_DESC,
+        n.MACHINE_DESC_SHORT,
+        n.PROCESS_ID,
+        n.RawName AS MACHINE_NAME_FULL
+    FROM named n
     LEFT JOIN latest l
-        ON l.MACHINE_NO = cd.MACHINE_CD
+        ON l.MACHINE_NO = n.MACHINE_CD
        AND l.rn = 1
-    ORDER BY cd.MachineName;
+    ORDER BY n.MachineName;
 END;
 GO

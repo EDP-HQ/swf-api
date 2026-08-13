@@ -1,7 +1,5 @@
 /*
     Active components, optionally scoped by process / line / machine.
-
-    EXEC dbo.sp_Components_Select @ProcessCd='STRANDING', @LineCd='BUNCHER'
 */
 
 USE SFC_WR_DB;
@@ -28,12 +26,12 @@ BEGIN
     SET @ProcessCd = UPPER(NULLIF(LTRIM(RTRIM(@ProcessCd)), ''));
     SET @LineCd = UPPER(NULLIF(LTRIM(RTRIM(@LineCd)), ''));
 
-    -- Stranding without line must not return Buncher+Tubular together
     IF @ProcessCd = 'STRANDING' AND @LineCd IS NULL
     BEGIN
         SELECT TOP 0
             COMPANY, FACTORY, PART_ID, PART_SEQ, PART_TYPE, MACHINE_NM,
-            PROCESS_CD, LINE_CD, REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE]
+            PROCESS_CD, LINE_CD, REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE],
+            CAST(NULL AS NVARCHAR(500)) AS PART_DETAILS
         FROM dbo.TB_COMPONENTS_TRACKER;
         RETURN;
     END;
@@ -51,7 +49,8 @@ BEGIN
         DISMANTLE_DT,
         RUNTIME_LIMIT_HOUR,
         RUNTIME_SEC,
-        [USE]
+        [USE],
+        PART_DETAILS
     FROM dbo.TB_COMPONENTS_TRACKER
     WHERE [USE] = 'Y'
       AND (@Company IS NULL OR COMPANY = @Company)
@@ -63,7 +62,6 @@ BEGIN
             OR @ProcessCd <> 'STRANDING'
             OR LINE_CD = @LineCd
           )
-      -- When process is set and not STRANDING, only unscoped (non-line) rows
       AND (
             @ProcessCd IS NULL
             OR @ProcessCd = 'STRANDING'

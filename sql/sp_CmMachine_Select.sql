@@ -1,8 +1,8 @@
 /*
     Component-monitoring machine registry, with plant Run/Stop when the
-    display name matches TB_CD_MACHINE (SWF prefix stripped).
+    display name matches TB_CD_MACHINE (SWF prefix + trailing (T)/(P)/… stripped).
 
-    EXEC dbo.sp_CmMachine_Select @ProcessCd='DRAWING', @UseYn='Y'
+    EXEC dbo.sp_CmMachine_Select @ProcessCd='CLOSING', @UseYn='Y'
 */
 
 USE SFC_WR_DB;
@@ -38,6 +38,52 @@ BEGIN
         RETURN;
     END;
 
+    ;WITH plant AS (
+        SELECT
+            m.MACHINE_CD,
+            m.MACHINE_DESC,
+            m.MACHINE_DESC_SHORT,
+            PlantName = LTRIM(RTRIM(
+                CASE
+                    WHEN UPPER(LEFT(LTRIM(m.MACHINE_DESC), 4)) = N'SWF '
+                        THEN SUBSTRING(LTRIM(m.MACHINE_DESC), 5, 400)
+                    ELSE m.MACHINE_DESC
+                END
+            )),
+            -- Closing/Tubular: SWF 12X12C(T) → 12X12C ; SWF 8X6F-3 (cmp no) → 8X6F-3
+            PlantNameCore = LTRIM(RTRIM(
+                CASE
+                    WHEN CHARINDEX(N'(',
+                            CASE
+                                WHEN UPPER(LEFT(LTRIM(m.MACHINE_DESC), 4)) = N'SWF '
+                                    THEN SUBSTRING(LTRIM(m.MACHINE_DESC), 5, 400)
+                                ELSE m.MACHINE_DESC
+                            END
+                         ) > 0
+                    THEN LEFT(
+                            CASE
+                                WHEN UPPER(LEFT(LTRIM(m.MACHINE_DESC), 4)) = N'SWF '
+                                    THEN SUBSTRING(LTRIM(m.MACHINE_DESC), 5, 400)
+                                ELSE m.MACHINE_DESC
+                            END,
+                            CHARINDEX(N'(',
+                                CASE
+                                    WHEN UPPER(LEFT(LTRIM(m.MACHINE_DESC), 4)) = N'SWF '
+                                        THEN SUBSTRING(LTRIM(m.MACHINE_DESC), 5, 400)
+                                    ELSE m.MACHINE_DESC
+                                END
+                            ) - 1
+                         )
+                    ELSE CASE
+                            WHEN UPPER(LEFT(LTRIM(m.MACHINE_DESC), 4)) = N'SWF '
+                                THEN SUBSTRING(LTRIM(m.MACHINE_DESC), 5, 400)
+                            ELSE m.MACHINE_DESC
+                         END
+                END
+            ))
+        FROM dbo.TB_CD_MACHINE m
+        WHERE ISNULL(m.USE_YN, N'Y') = N'Y'
+    )
     SELECT
         cm.COMPANY,
         cm.FACTORY,
@@ -52,21 +98,19 @@ BEGIN
         rd.START_TIME AS RUN_START_TIME
     FROM dbo.TB_CM_MACHINE cm
     OUTER APPLY (
-        SELECT TOP 1
-            m.MACHINE_CD
-        FROM dbo.TB_CD_MACHINE m
-        WHERE ISNULL(m.USE_YN, N'Y') = N'Y'
-          AND (
-                LTRIM(RTRIM(
-                    CASE
-                        WHEN UPPER(LEFT(LTRIM(m.MACHINE_DESC), 4)) = N'SWF '
-                            THEN SUBSTRING(LTRIM(m.MACHINE_DESC), 5, 400)
-                        ELSE m.MACHINE_DESC
-                    END
-                )) = cm.MACHINE_NM
-                OR m.MACHINE_DESC = cm.MACHINE_NM
-                OR m.MACHINE_DESC_SHORT = cm.MACHINE_NM
-              )
+        SELECT TOP 1 p.MACHINE_CD
+        FROM plant p
+        WHERE p.PlantName = cm.MACHINE_NM
+           OR p.PlantNameCore = cm.MACHINE_NM
+           OR p.MACHINE_DESC = cm.MACHINE_NM
+           OR p.MACHINE_DESC_SHORT = cm.MACHINE_NM
+           OR p.PlantNameCore = LTRIM(RTRIM(
+                CASE
+                    WHEN CHARINDEX(N'(', cm.MACHINE_NM) > 0
+                        THEN LEFT(cm.MACHINE_NM, CHARINDEX(N'(', cm.MACHINE_NM) - 1)
+                    ELSE cm.MACHINE_NM
+                END
+              ))
     ) cd
     OUTER APPLY (
         SELECT TOP 1

@@ -1,5 +1,5 @@
 /*
-    Replace an active component; copies PROCESS_CD / LINE_CD onto the new row.
+    Replace an active component; copies PROCESS_CD / LINE_CD / PART_DETAILS onto the new row.
 */
 
 USE SFC_WR_DB;
@@ -29,7 +29,8 @@ BEGIN
     DECLARE @OldPartId  VARCHAR(20);
     DECLARE @Company    VARCHAR(10);
     DECLARE @Factory    VARCHAR(20);
-    DECLARE @PartType   VARCHAR(20);
+    DECLARE @PartType   NVARCHAR(100);
+    DECLARE @PartDetails NVARCHAR(500);
     DECLARE @Machine    NVARCHAR(100);
     DECLARE @ProcessCd  VARCHAR(20);
     DECLARE @LineCd     VARCHAR(20);
@@ -46,6 +47,7 @@ BEGIN
         @Company = COMPANY,
         @Factory = FACTORY,
         @PartType = PART_TYPE,
+        @PartDetails = PART_DETAILS,
         @Machine = MACHINE_NM,
         @ProcessCd = PROCESS_CD,
         @LineCd = LINE_CD,
@@ -108,13 +110,15 @@ BEGIN
     (
         COMPANY, FACTORY, PART_ID, PART_SEQ, PART_TYPE, MACHINE_NM,
         PROCESS_CD, LINE_CD,
-        REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE]
+        REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE],
+        PART_DETAILS
     )
     VALUES
     (
         @Company, @Factory, @NewPartId, @NewPartSeq, @PartType, @Machine,
         @ProcessCd, @LineCd,
-        @ReplaceDt, NULL, @Limit, 0, 'Y'
+        @ReplaceDt, NULL, @Limit, 0, 'Y',
+        @PartDetails
     );
 
     COMMIT;
@@ -122,7 +126,8 @@ BEGIN
     SELECT
         COMPANY, FACTORY, PART_ID, PART_SEQ, PART_TYPE, MACHINE_NM,
         PROCESS_CD, LINE_CD,
-        REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE]
+        REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE],
+        PART_DETAILS
     FROM dbo.TB_COMPONENTS_TRACKER
     WHERE PART_ID = @NewPartId;
 END;

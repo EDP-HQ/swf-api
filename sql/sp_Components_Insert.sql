@@ -1,5 +1,11 @@
 /*
-    Register a new active component on a machine (scoped by process / line).
+    Register a new active component on a machine (free-text name + details).
+
+    EXEC dbo.sp_Components_Insert
+        @Company='KSB', @Factory='F002',
+        @MachineNm='12X13HSP', @PartType='Bearing A',
+        @RuntimeLimitHour=6000, @ProcessCd='DRAWING',
+        @PartDetails='SKF 6205 · side A'
 */
 
 USE SFC_WR_DB;
@@ -14,10 +20,11 @@ CREATE OR ALTER PROCEDURE dbo.sp_Components_Insert
     @Company           VARCHAR(10),
     @Factory           VARCHAR(20),
     @MachineNm         NVARCHAR(100),
-    @PartType          VARCHAR(20),
+    @PartType          NVARCHAR(100),
     @RuntimeLimitHour  DECIMAL(12, 2),
     @ProcessCd         VARCHAR(20) = 'STRANDING',
-    @LineCd            VARCHAR(20) = NULL
+    @LineCd            VARCHAR(20) = NULL,
+    @PartDetails       NVARCHAR(500) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -27,6 +34,7 @@ BEGIN
     SET @Factory = NULLIF(LTRIM(RTRIM(@Factory)), '');
     SET @MachineNm = NULLIF(LTRIM(RTRIM(@MachineNm)), '');
     SET @PartType = NULLIF(LTRIM(RTRIM(@PartType)), '');
+    SET @PartDetails = NULLIF(LTRIM(RTRIM(@PartDetails)), '');
     SET @ProcessCd = UPPER(NULLIF(LTRIM(RTRIM(@ProcessCd)), ''));
     SET @LineCd = UPPER(NULLIF(LTRIM(RTRIM(@LineCd)), ''));
 
@@ -69,7 +77,7 @@ BEGIN
           AND UPPER(LTRIM(RTRIM(PART_TYPE))) = UPPER(@PartType)
     )
     BEGIN
-        RAISERROR(N'An active component with this part type already exists on this machine.', 16, 1);
+        RAISERROR(N'An active component with this name already exists on this machine.', 16, 1);
         RETURN;
     END;
 
@@ -97,19 +105,22 @@ BEGIN
     (
         COMPANY, FACTORY, PART_ID, PART_SEQ, PART_TYPE, MACHINE_NM,
         PROCESS_CD, LINE_CD,
-        REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE]
+        REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE],
+        PART_DETAILS
     )
     VALUES
     (
         @Company, @Factory, @NewPartId, @PartSeq, @PartType, @MachineNm,
         @ProcessCd, @LineCd,
-        @ReplaceDt, NULL, @RuntimeLimitHour, 0, 'Y'
+        @ReplaceDt, NULL, @RuntimeLimitHour, 0, 'Y',
+        @PartDetails
     );
 
     SELECT
         COMPANY, FACTORY, PART_ID, PART_SEQ, PART_TYPE, MACHINE_NM,
         PROCESS_CD, LINE_CD,
-        REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE]
+        REPLACE_DT, DISMANTLE_DT, RUNTIME_LIMIT_HOUR, RUNTIME_SEC, [USE],
+        PART_DETAILS
     FROM dbo.TB_COMPONENTS_TRACKER
     WHERE PART_ID = @NewPartId;
 END;
