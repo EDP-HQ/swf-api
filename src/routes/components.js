@@ -190,6 +190,47 @@ function updateRuntimeLimitHandler(dbConfig, logTag) {
   };
 }
 
+function updateDetailsHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const { params = {} } = req.body || {};
+      const partId = params.PartId ?? params.PartID ?? params.partId ?? null;
+      const machineNm = params.MachineNm ?? params.MachineName ?? params.machineNm ?? null;
+      let partSeq = params.PartSeq ?? params.partSeq ?? null;
+      const partKey = params.PartKey ?? params.partKey ?? null;
+      const partDetails = params.PartDetails ?? params.partDetails ?? params.PART_DETAILS ?? null;
+
+      if (partSeq == null && partKey != null) {
+        partSeq = PART_KEY_TO_SEQ[partKey] ?? null;
+      }
+
+      if (!partId && (!machineNm || partSeq == null)) {
+        return res.status(400).json({
+          error: 'PartId or both MachineName and PartKey/PartSeq are required'
+        });
+      }
+
+      const parameters = [
+        { name: 'PartId', value: partId || null, type: sql.VarChar(20) },
+        { name: 'MachineNm', value: machineNm || null, type: sql.NVarChar(100) },
+        { name: 'PartSeq', value: partSeq, type: sql.Int },
+        {
+          name: 'PartDetails',
+          value: partDetails != null && String(partDetails).trim() !== '' ? String(partDetails).trim() : null,
+          type: sql.NVarChar(500)
+        }
+      ];
+
+      await database.executeStoredProcedure(res, dbConfig, 'sp_Components_UpdateDetails', parameters);
+    } catch (error) {
+      console.error(`components/updatedetails${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
+    }
+  };
+}
+
 function replaceHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
@@ -816,6 +857,7 @@ router.post('/replace', replaceHandler(localdbConfig));
 router.post('/remove', removeHandler(localdbConfig));
 router.post('/updateruntime', updateRuntimeHandler(localdbConfig));
 router.post('/updateruntimelimit', updateRuntimeLimitHandler(localdbConfig));
+router.post('/updatedetails', updateDetailsHandler(localdbConfig));
 router.post('/insert', insertHandler(localdbConfig));
 router.get('/sfcwr/select', selectHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/history', historyHandler(sfcwrdbConfig, 'sfcwr'));
@@ -835,6 +877,7 @@ router.post('/sfcwr/replace', replaceHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/remove', removeHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntime', updateRuntimeHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntimelimit', updateRuntimeLimitHandler(sfcwrdbConfig, 'sfcwr'));
+router.post('/sfcwr/updatedetails', updateDetailsHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/insert', insertHandler(sfcwrdbConfig, 'sfcwr'));
 
 module.exports = router;
