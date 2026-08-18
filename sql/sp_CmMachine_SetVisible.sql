@@ -49,6 +49,35 @@ BEGIN
     IF @ProcessCd <> 'STRANDING'
         SET @LineCd = NULL;
 
+    IF @VisibleYn = 'Y'
+       AND EXISTS (
+            SELECT 1
+            FROM dbo.TB_CM_MACHINE shown
+            WHERE shown.COMPANY = @Company
+              AND shown.FACTORY = @Factory
+              AND shown.PROCESS_CD = @ProcessCd
+              AND shown.LINE_YN = 'Y'
+              AND shown.USE_YN = 'Y'
+              AND shown.MACHINE_NM <> @MachineNm
+       )
+       AND EXISTS (
+            SELECT 1
+            FROM dbo.TB_CM_MACHINE restoring
+            WHERE restoring.COMPANY = @Company
+              AND restoring.FACTORY = @Factory
+              AND restoring.PROCESS_CD = @ProcessCd
+              AND restoring.MACHINE_NM = @MachineNm
+              AND restoring.LINE_YN = 'Y'
+              AND (
+                    (@LineCd IS NULL AND restoring.LINE_CD IS NULL)
+                    OR restoring.LINE_CD = @LineCd
+                  )
+       )
+    BEGIN
+        RAISERROR(N'A shared line card is already on this board.', 16, 1);
+        RETURN;
+    END;
+
     UPDATE dbo.TB_CM_MACHINE
     SET USE_YN = @VisibleYn,
         LAST_CHG_DT = GETDATE()

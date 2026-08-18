@@ -5,7 +5,10 @@
         @Company = 'KSB', @Factory = 'F002',
         @ProcessCd = 'STRANDING', @LineCd = 'TUBULAR',
         @MachineNm = 'TUB 1250-1',
-        @MachineCd = NULL
+        @MachineCd = NULL,
+        @LineYn = 'N'
+
+    INLINE shared line card: @LineYn = 'Y' (no machine code; one per process).
 */
 
 USE SFC_WR_DB;
@@ -22,7 +25,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_CmMachine_Insert
     @ProcessCd VARCHAR(20),
     @LineCd    VARCHAR(20) = NULL,
     @MachineNm NVARCHAR(100),
-    @MachineCd NVARCHAR(50) = NULL
+    @MachineCd NVARCHAR(50) = NULL,
+    @LineYn    CHAR(1)      = 'N'
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -34,6 +38,8 @@ BEGIN
     SET @LineCd = UPPER(NULLIF(LTRIM(RTRIM(@LineCd)), ''));
     SET @MachineNm = NULLIF(LTRIM(RTRIM(@MachineNm)), '');
     SET @MachineCd = NULLIF(LTRIM(RTRIM(@MachineCd)), '');
+    SET @LineYn = UPPER(NULLIF(LTRIM(RTRIM(@LineYn)), ''));
+    IF @LineYn IS NULL SET @LineYn = 'N';
 
     IF @Company IS NULL OR @Factory IS NULL OR @ProcessCd IS NULL OR @MachineNm IS NULL
     BEGIN
@@ -47,7 +53,22 @@ BEGIN
         RETURN;
     END;
 
-    IF @ProcessCd = 'INLINE' AND @MachineCd IS NULL
+    IF @LineYn NOT IN ('Y', 'N')
+    BEGIN
+        RAISERROR(N'LineYn must be Y or N.', 16, 1);
+        RETURN;
+    END;
+
+    IF @LineYn = 'Y' AND @ProcessCd <> 'INLINE'
+    BEGIN
+        RAISERROR(N'Shared line card is only for INLINE.', 16, 1);
+        RETURN;
+    END;
+
+    IF @LineYn = 'Y'
+        SET @MachineCd = NULL;
+
+    IF @ProcessCd = 'INLINE' AND @LineYn = 'N' AND @MachineCd IS NULL
     BEGIN
         RAISERROR(N'INLINE requires a machine code.', 16, 1);
         RETURN;
@@ -81,6 +102,22 @@ BEGIN
         RETURN;
     END;
 
+    IF @LineYn = 'Y'
+       AND EXISTS (
+            SELECT 1
+            FROM dbo.TB_CM_MACHINE
+            WHERE COMPANY = @Company
+              AND FACTORY = @Factory
+              AND PROCESS_CD = @ProcessCd
+              AND LINE_YN = 'Y'
+              AND USE_YN = 'Y'
+              AND MACHINE_NM <> @MachineNm
+       )
+    BEGIN
+        RAISERROR(N'A shared line card is already registered for INLINE.', 16, 1);
+        RETURN;
+    END;
+
     IF @MachineCd IS NOT NULL
        AND EXISTS (
             SELECT 1
@@ -111,6 +148,7 @@ BEGIN
         SET USE_YN = 'Y',
             LINE_CD = @LineCd,
             MACHINE_CD = @MachineCd,
+            LINE_YN = @LineYn,
             LAST_CHG_DT = GETDATE()
         WHERE COMPANY = @Company
           AND FACTORY = @Factory
@@ -120,9 +158,9 @@ BEGIN
     ELSE
     BEGIN
         INSERT INTO dbo.TB_CM_MACHINE
-            (COMPANY, FACTORY, PROCESS_CD, LINE_CD, MACHINE_NM, MACHINE_CD, USE_YN, CREATED_DT)
+            (COMPANY, FACTORY, PROCESS_CD, LINE_CD, MACHINE_NM, MACHINE_CD, LINE_YN, USE_YN, CREATED_DT)
         VALUES
-            (@Company, @Factory, @ProcessCd, @LineCd, @MachineNm, @MachineCd, 'Y', GETDATE());
+            (@Company, @Factory, @ProcessCd, @LineCd, @MachineNm, @MachineCd, @LineYn, 'Y', GETDATE());
     END;
 
     SELECT
@@ -132,6 +170,7 @@ BEGIN
         LINE_CD,
         MACHINE_NM,
         MACHINE_CD,
+        LINE_YN,
         USE_YN,
         CREATED_DT,
         LAST_CHG_DT

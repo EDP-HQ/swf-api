@@ -108,18 +108,31 @@ function buildRunningMap(machineRows, buncherOnoffRows, processCd, lineCd, inlin
     return map;
   }
 
-  if (processCd === 'INLINE' && inlineOnoffRows) {
+  if (processCd === 'INLINE') {
     /** @type {Map<string, boolean>} */
     const byNo = new Map();
-    for (const row of inlineOnoffRows) {
-      const no = rowStr(row, 'MACHINE_NO', 'MACHINE_CD').toUpperCase();
-      if (no) byNo.set(no, rowStr(row, 'RUN_DN_TYPE') === '01');
+    if (inlineOnoffRows) {
+      for (const row of inlineOnoffRows) {
+        const no = rowStr(row, 'MACHINE_NO', 'MACHINE_CD').toUpperCase();
+        if (no) byNo.set(no, rowStr(row, 'RUN_DN_TYPE') === '01');
+      }
+    }
+    let anyCodedRunning = false;
+    for (const row of machineRows) {
+      const name = rowStr(row, 'MACHINE_NM', 'MACHINE_NAME');
+      if (!name) continue;
+      if (rowStr(row, 'LINE_YN').toUpperCase() === 'Y') continue;
+      const machineNo = rowStr(row, 'MACHINE_CD', 'MACHINE_NO').toUpperCase();
+      const running = !!machineNo && byNo.get(machineNo) === true;
+      map.set(name, running);
+      if (running) anyCodedRunning = true;
     }
     for (const row of machineRows) {
       const name = rowStr(row, 'MACHINE_NM', 'MACHINE_NAME');
       if (!name) continue;
-      const machineNo = rowStr(row, 'MACHINE_NO', 'MACHINE_CD').toUpperCase();
-      map.set(name, !!machineNo && byNo.get(machineNo) === true);
+      if (rowStr(row, 'LINE_YN').toUpperCase() === 'Y') {
+        map.set(name, anyCodedRunning);
+      }
     }
     return map;
   }

@@ -56,7 +56,19 @@ BEGIN
     ELSE
         SET @LineCd = NULL;
 
-    DECLARE @HasCode BIT = CASE WHEN @ProcessCd = 'INLINE' THEN 1 ELSE 0 END;
+    DECLARE @IsLine CHAR(1) = 'N';
+    SELECT @IsLine = ISNULL(LINE_YN, 'N')
+    FROM dbo.TB_CM_MACHINE
+    WHERE COMPANY = @Company
+      AND FACTORY = @Factory
+      AND PROCESS_CD = @ProcessCd
+      AND MACHINE_NM = @OldMachineNm
+      AND (
+            (@LineCd IS NULL AND LINE_CD IS NULL)
+            OR LINE_CD = @LineCd
+          );
+
+    DECLARE @HasCode BIT = CASE WHEN @ProcessCd = 'INLINE' AND ISNULL(@IsLine, 'N') <> 'Y' THEN 1 ELSE 0 END;
 
     DECLARE @NameChanged BIT = CASE WHEN @OldMachineNm = @NewMachineNm THEN 0 ELSE 1 END;
 
@@ -168,7 +180,7 @@ BEGIN
     COMMIT TRAN;
 
     SELECT
-        COMPANY, FACTORY, PROCESS_CD, LINE_CD, MACHINE_NM, MACHINE_CD, USE_YN, CREATED_DT, LAST_CHG_DT
+        COMPANY, FACTORY, PROCESS_CD, LINE_CD, MACHINE_NM, MACHINE_CD, LINE_YN, USE_YN, CREATED_DT, LAST_CHG_DT
     FROM dbo.TB_CM_MACHINE
     WHERE COMPANY = @Company
       AND FACTORY = @Factory
