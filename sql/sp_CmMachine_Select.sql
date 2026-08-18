@@ -40,6 +40,74 @@ BEGIN
         RETURN;
     END;
 
+    -- One built-in INLINE line card (no takeup code). Users do not add this.
+    IF COL_LENGTH(N'dbo.TB_CM_MACHINE', N'LINE_YN') IS NOT NULL
+       AND (@ProcessCd IS NULL OR @ProcessCd = N'INLINE')
+    BEGIN
+        IF EXISTS (
+            SELECT 1
+            FROM dbo.TB_CM_MACHINE
+            WHERE PROCESS_CD = N'INLINE'
+              AND ISNULL(LINE_YN, N'N') = N'Y'
+              AND USE_YN = N'N'
+        )
+        BEGIN
+            UPDATE dbo.TB_CM_MACHINE
+            SET USE_YN = N'Y',
+                LAST_CHG_DT = GETDATE()
+            WHERE PROCESS_CD = N'INLINE'
+              AND ISNULL(LINE_YN, N'N') = N'Y'
+              AND USE_YN = N'N';
+        END
+        ELSE IF NOT EXISTS (
+            SELECT 1
+            FROM dbo.TB_CM_MACHINE
+            WHERE PROCESS_CD = N'INLINE'
+              AND ISNULL(LINE_YN, N'N') = N'Y'
+        )
+        BEGIN
+            DECLARE @LineCompany VARCHAR(10);
+            DECLARE @LineFactory VARCHAR(20);
+
+            SELECT TOP 1
+                @LineCompany = COMPANY,
+                @LineFactory = FACTORY
+            FROM dbo.TB_CM_MACHINE
+            WHERE PROCESS_CD = N'INLINE'
+            ORDER BY CREATED_DT;
+
+            IF @LineCompany IS NULL SET @LineCompany = 'KSB';
+            IF @LineFactory IS NULL SET @LineFactory = 'F002';
+
+            IF NOT EXISTS (
+                SELECT 1
+                FROM dbo.TB_CM_MACHINE
+                WHERE COMPANY = @LineCompany
+                  AND FACTORY = @LineFactory
+                  AND PROCESS_CD = N'INLINE'
+                  AND MACHINE_NM = N'INLINE LINE'
+            )
+            BEGIN
+                INSERT INTO dbo.TB_CM_MACHINE
+                    (COMPANY, FACTORY, PROCESS_CD, LINE_CD, MACHINE_NM, MACHINE_CD, LINE_YN, USE_YN, CREATED_DT)
+                VALUES
+                    (@LineCompany, @LineFactory, N'INLINE', NULL, N'INLINE LINE', NULL, N'Y', N'Y', GETDATE());
+            END
+            ELSE
+            BEGIN
+                UPDATE dbo.TB_CM_MACHINE
+                SET LINE_YN = N'Y',
+                    MACHINE_CD = NULL,
+                    USE_YN = N'Y',
+                    LAST_CHG_DT = GETDATE()
+                WHERE COMPANY = @LineCompany
+                  AND FACTORY = @LineFactory
+                  AND PROCESS_CD = N'INLINE'
+                  AND MACHINE_NM = N'INLINE LINE';
+            END
+        END
+    END;
+
     ;WITH plant AS (
         SELECT
             m.MACHINE_CD,

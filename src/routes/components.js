@@ -548,7 +548,6 @@ function machinesInsertHandler(dbConfig, logTag) {
       const lineCd = params.LineCd ?? params.lineCd ?? params.line_cd ?? null;
       const machineNm = params.MachineNm ?? params.MachineName ?? params.machineNm ?? null;
       const machineCd = params.MachineCd ?? params.machineCd ?? params.machine_cd ?? null;
-      const lineYn = params.LineYn ?? params.lineYn ?? params.line_yn ?? 'N';
 
       if (!processCd) {
         return res.status(400).json({ error: 'ProcessCd is required' });
@@ -563,8 +562,7 @@ function machinesInsertHandler(dbConfig, logTag) {
         { name: 'ProcessCd', value: String(processCd), type: sql.VarChar(20) },
         { name: 'LineCd', value: lineCd ? String(lineCd) : null, type: sql.VarChar(20) },
         { name: 'MachineNm', value: String(machineNm), type: sql.NVarChar(100) },
-        { name: 'MachineCd', value: machineCd ? String(machineCd) : null, type: sql.NVarChar(50) },
-        { name: 'LineYn', value: String(lineYn || 'N').toUpperCase() === 'Y' ? 'Y' : 'N', type: sql.Char(1) }
+        { name: 'MachineCd', value: machineCd ? String(machineCd) : null, type: sql.NVarChar(50) }
       ];
 
       await database.executeStoredProcedure(res, dbConfig, 'sp_CmMachine_Insert', parameters);

@@ -49,6 +49,25 @@ BEGIN
     IF @ProcessCd <> 'STRANDING'
         SET @LineCd = NULL;
 
+    IF @VisibleYn = 'N'
+       AND EXISTS (
+            SELECT 1
+            FROM dbo.TB_CM_MACHINE
+            WHERE COMPANY = @Company
+              AND FACTORY = @Factory
+              AND PROCESS_CD = @ProcessCd
+              AND MACHINE_NM = @MachineNm
+              AND ISNULL(LINE_YN, 'N') = 'Y'
+              AND (
+                    (@LineCd IS NULL AND LINE_CD IS NULL)
+                    OR LINE_CD = @LineCd
+                  )
+       )
+    BEGIN
+        RAISERROR(N'The shared line card cannot be hidden.', 16, 1);
+        RETURN;
+    END;
+
     IF @VisibleYn = 'Y'
        AND EXISTS (
             SELECT 1
