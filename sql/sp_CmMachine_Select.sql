@@ -95,8 +95,7 @@ BEGIN
         cm.CREATED_DT,
         cm.LAST_CHG_DT,
         CASE
-            WHEN cm.PROCESS_CD = N'INLINE'
-                THEN dbo.fn_Cm_NormalizeInlineMachineCd(cm.MACHINE_CD)
+            WHEN cm.PROCESS_CD = N'INLINE' THEN cm.MACHINE_CD
             ELSE cd.MACHINE_CD
         END AS MACHINE_NO,
         CASE

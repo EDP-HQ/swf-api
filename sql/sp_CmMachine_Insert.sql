@@ -47,16 +47,14 @@ BEGIN
         RETURN;
     END;
 
-    DECLARE @NormCd NVARCHAR(50) = NULL;
-    IF @ProcessCd = 'INLINE'
+    IF @ProcessCd = 'INLINE' AND @MachineCd IS NULL
     BEGIN
-        SET @NormCd = dbo.fn_Cm_NormalizeInlineMachineCd(@MachineCd);
-        IF @NormCd IS NULL
-        BEGIN
-            RAISERROR(N'INLINE requires machine code INnnnn or LInnnn (e.g. IN0012).', 16, 1);
-            RETURN;
-        END;
+        RAISERROR(N'INLINE requires a machine code.', 16, 1);
+        RETURN;
     END;
+
+    IF @ProcessCd <> 'INLINE'
+        SET @MachineCd = NULL;
 
     IF @ProcessCd = 'STRANDING'
     BEGIN
@@ -83,14 +81,14 @@ BEGIN
         RETURN;
     END;
 
-    IF @NormCd IS NOT NULL
+    IF @MachineCd IS NOT NULL
        AND EXISTS (
             SELECT 1
             FROM dbo.TB_CM_MACHINE
             WHERE COMPANY = @Company
               AND FACTORY = @Factory
               AND PROCESS_CD = @ProcessCd
-              AND MACHINE_CD = @NormCd
+              AND MACHINE_CD = @MachineCd
               AND MACHINE_NM <> @MachineNm
               AND USE_YN = 'Y'
        )
@@ -112,7 +110,7 @@ BEGIN
         UPDATE dbo.TB_CM_MACHINE
         SET USE_YN = 'Y',
             LINE_CD = @LineCd,
-            MACHINE_CD = @NormCd,
+            MACHINE_CD = @MachineCd,
             LAST_CHG_DT = GETDATE()
         WHERE COMPANY = @Company
           AND FACTORY = @Factory
@@ -124,7 +122,7 @@ BEGIN
         INSERT INTO dbo.TB_CM_MACHINE
             (COMPANY, FACTORY, PROCESS_CD, LINE_CD, MACHINE_NM, MACHINE_CD, USE_YN, CREATED_DT)
         VALUES
-            (@Company, @Factory, @ProcessCd, @LineCd, @MachineNm, @NormCd, 'Y', GETDATE());
+            (@Company, @Factory, @ProcessCd, @LineCd, @MachineNm, @MachineCd, 'Y', GETDATE());
     END;
 
     SELECT

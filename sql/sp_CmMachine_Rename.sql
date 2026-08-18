@@ -56,18 +56,7 @@ BEGIN
     ELSE
         SET @LineCd = NULL;
 
-    DECLARE @NormCd NVARCHAR(50) = NULL;
-    DECLARE @HasCode BIT = 0;
-    IF @ProcessCd = 'INLINE'
-    BEGIN
-        SET @HasCode = 1;
-        SET @NormCd = dbo.fn_Cm_NormalizeInlineMachineCd(@MachineCd);
-        IF @MachineCd IS NOT NULL AND @NormCd IS NULL
-        BEGIN
-            RAISERROR(N'INLINE machine code must be INnnnn or LInnnn (e.g. IN0012).', 16, 1);
-            RETURN;
-        END;
-    END;
+    DECLARE @HasCode BIT = CASE WHEN @ProcessCd = 'INLINE' THEN 1 ELSE 0 END;
 
     DECLARE @NameChanged BIT = CASE WHEN @OldMachineNm = @NewMachineNm THEN 0 ELSE 1 END;
 
@@ -108,14 +97,14 @@ BEGIN
         RETURN;
     END;
 
-    IF @NormCd IS NOT NULL
+    IF @HasCode = 1 AND @MachineCd IS NOT NULL
        AND EXISTS (
             SELECT 1
             FROM dbo.TB_CM_MACHINE
             WHERE COMPANY = @Company
               AND FACTORY = @Factory
               AND PROCESS_CD = @ProcessCd
-              AND MACHINE_CD = @NormCd
+              AND MACHINE_CD = @MachineCd
               AND MACHINE_NM <> @OldMachineNm
               AND USE_YN = 'Y'
        )
@@ -128,7 +117,7 @@ BEGIN
 
     UPDATE dbo.TB_CM_MACHINE
     SET MACHINE_NM = @NewMachineNm,
-        MACHINE_CD = CASE WHEN @HasCode = 1 THEN @NormCd ELSE MACHINE_CD END,
+        MACHINE_CD = CASE WHEN @HasCode = 1 THEN @MachineCd ELSE MACHINE_CD END,
         LAST_CHG_DT = GETDATE()
     WHERE COMPANY = @Company
       AND FACTORY = @Factory

@@ -20,7 +20,7 @@ BEGIN
         PROCESS_CD   VARCHAR(20)   NOT NULL,  -- INLINE / DRAWING / STRANDING / CLOSING / REWINDER
         LINE_CD      VARCHAR(20)   NULL,      -- BUNCHER / TUBULAR (Stranding); NULL otherwise
         MACHINE_NM   NVARCHAR(100) NOT NULL,
-        MACHINE_CD   NVARCHAR(50)  NULL,      -- INLINE takeup/plant code (IN####); NULL = not linked
+        MACHINE_CD   NVARCHAR(50)  NULL,      -- INLINE: user-entered code; NULL = not linked
         USE_YN       CHAR(1)       NOT NULL CONSTRAINT DF_TB_CM_MACHINE_USE DEFAULT ('Y'),
         CREATED_DT   DATETIME      NOT NULL CONSTRAINT DF_TB_CM_MACHINE_CREATED DEFAULT (GETDATE()),
         LAST_CHG_DT  DATETIME      NULL,
