@@ -83,7 +83,15 @@ async function loadBuncherOnoff() {
   return Array.isArray(rows) ? rows : [];
 }
 
-function buildRunningMap(machineRows, buncherOnoffRows, processCd, lineCd) {
+async function loadInlineOnoff() {
+  const rows = await execSp('sp_Components_Run_ONOFF', [
+    { name: 'ProcessCd', value: 'INLINE', type: sql.VarChar(20) },
+    { name: 'LineCd', value: null, type: sql.VarChar(20) }
+  ]);
+  return Array.isArray(rows) ? rows : [];
+}
+
+function buildRunningMap(machineRows, buncherOnoffRows, processCd, lineCd, inlineOnoffRows) {
   /** @type {Map<string, boolean>} */
   const map = new Map();
 
@@ -93,10 +101,25 @@ function buildRunningMap(machineRows, buncherOnoffRows, processCd, lineCd) {
       if (!name) continue;
       map.set(name, rowStr(row, 'RUN_DN_TYPE') === '01');
     }
-    // ensure registry machines appear even if missing from HQ list
     for (const row of machineRows) {
       const name = rowStr(row, 'MACHINE_NM', 'MACHINE_NAME');
       if (name && !map.has(name)) map.set(name, false);
+    }
+    return map;
+  }
+
+  if (processCd === 'INLINE' && inlineOnoffRows) {
+    /** @type {Map<string, boolean>} */
+    const byNo = new Map();
+    for (const row of inlineOnoffRows) {
+      const no = rowStr(row, 'MACHINE_NO', 'MACHINE_CD').toUpperCase();
+      if (no) byNo.set(no, rowStr(row, 'RUN_DN_TYPE') === '01');
+    }
+    for (const row of machineRows) {
+      const name = rowStr(row, 'MACHINE_NM', 'MACHINE_NAME');
+      if (!name) continue;
+      const machineNo = rowStr(row, 'MACHINE_NO', 'MACHINE_CD').toUpperCase();
+      map.set(name, !!machineNo && byNo.get(machineNo) === true);
     }
     return map;
   }
@@ -105,7 +128,6 @@ function buildRunningMap(machineRows, buncherOnoffRows, processCd, lineCd) {
     const name = rowStr(row, 'MACHINE_NM', 'MACHINE_NAME');
     if (!name) continue;
     const machineNo = rowStr(row, 'MACHINE_NO', 'MACHINE_CD');
-    // No plant match → do not accumulate (same as UI "Not found")
     map.set(name, !!machineNo && rowStr(row, 'RUN_DN_TYPE') === '01');
   }
   return map;
@@ -120,13 +142,19 @@ async function updateRuntimeSec(partId, runtimeSec) {
   ]);
 }
 
-async function tickScope(scope, nowMs, buncherOnoffRows) {
+async function tickScope(scope, nowMs, buncherOnoffRows, inlineOnoffRows) {
   const { processCd, lineCd } = scope;
   const machines = await loadMachines(processCd, lineCd);
   const components = await loadComponents(processCd, lineCd);
   if (!components.length) return 0;
 
-  const runningMap = buildRunningMap(machines, buncherOnoffRows, processCd, lineCd);
+  const runningMap = buildRunningMap(
+    machines,
+    buncherOnoffRows,
+    processCd,
+    lineCd,
+    inlineOnoffRows
+  );
   let writes = 0;
 
   for (const row of components) {
@@ -201,9 +229,17 @@ async function tickOnce() {
       buncherOnoff = [];
     }
 
+    let inlineOnoff = null;
+    try {
+      inlineOnoff = await loadInlineOnoff();
+    } catch (e) {
+      console.warn('[component-runtime] inline onoff failed:', e?.message || e);
+      inlineOnoff = [];
+    }
+
     for (const scope of SCOPES) {
       try {
-        writes += await tickScope(scope, nowMs, buncherOnoff);
+        writes += await tickScope(scope, nowMs, buncherOnoff, inlineOnoff);
       } catch (e) {
         console.warn(
           `[component-runtime] scope ${scope.processCd}/${scope.lineCd || '-'} failed:`,

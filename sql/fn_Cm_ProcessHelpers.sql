@@ -49,3 +49,15 @@ BEGIN
     RETURN @d;
 END;
 GO
+
+-- INLINE: LI0001 or IN0001 → IN0001 (takeup key). Invalid → NULL.
+CREATE OR ALTER FUNCTION dbo.fn_Cm_NormalizeInlineMachineCd(@MachineCd NVARCHAR(50))
+RETURNS NVARCHAR(50)
+AS
+BEGIN
+    DECLARE @v NVARCHAR(50) = UPPER(LTRIM(RTRIM(ISNULL(@MachineCd, N''))));
+    IF @v LIKE N'LI[0-9][0-9][0-9][0-9]' RETURN N'IN' + RIGHT(@v, 4);
+    IF @v LIKE N'IN[0-9][0-9][0-9][0-9]' RETURN @v;
+    RETURN NULL;
+END;
+GO

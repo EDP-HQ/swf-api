@@ -26,9 +26,15 @@ BEGIN
     SET NOCOUNT ON;
 
     DECLARE @Proc VARCHAR(20) = UPPER(LTRIM(RTRIM(ISNULL(@ProcessCd, N''))));
+
+    IF @Proc = N'INLINE'
+    BEGIN
+        EXEC dbo.sp_Components_Inline_Run_ONOFF;
+        RETURN;
+    END;
+
     DECLARE @ProcessId NVARCHAR(10) = CASE @Proc
         WHEN N'DRAWING'   THEN N'DW'
-        WHEN N'INLINE'    THEN N'IL'
         WHEN N'STRANDING' THEN N'ST'
         WHEN N'CLOSING'   THEN N'CL'
         WHEN N'REWINDER'  THEN N'RE'
@@ -52,6 +58,7 @@ BEGIN
         FROM dbo.TB_CD_MACHINE m
         WHERE ISNULL(m.USE_YN, N'Y') = N'Y'
           AND (@ProcessId IS NULL OR m.PROCESS_ID = @ProcessId)
+          AND m.PROCESS_ID <> N'IL'
     ),
     named AS (
         SELECT

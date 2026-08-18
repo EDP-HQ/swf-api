@@ -506,6 +506,7 @@ function machinesRenameHandler(dbConfig, logTag) {
         params.OldMachineNm ?? params.OldMachineName ?? params.oldMachineNm ?? params.old_machine_nm ?? null;
       const newMachineNm =
         params.NewMachineNm ?? params.NewMachineName ?? params.newMachineNm ?? params.new_machine_nm ?? null;
+      const machineCd = params.MachineCd ?? params.machineCd ?? params.machine_cd ?? null;
 
       if (!processCd) {
         return res.status(400).json({ error: 'ProcessCd is required' });
@@ -520,7 +521,8 @@ function machinesRenameHandler(dbConfig, logTag) {
         { name: 'ProcessCd', value: String(processCd).toUpperCase(), type: sql.VarChar(20) },
         { name: 'LineCd', value: lineCd ? String(lineCd).toUpperCase() : null, type: sql.VarChar(20) },
         { name: 'OldMachineNm', value: String(oldMachineNm), type: sql.NVarChar(100) },
-        { name: 'NewMachineNm', value: String(newMachineNm), type: sql.NVarChar(100) }
+        { name: 'NewMachineNm', value: String(newMachineNm), type: sql.NVarChar(100) },
+        { name: 'MachineCd', value: machineCd != null ? String(machineCd) : null, type: sql.NVarChar(50) }
       ];
 
       await database.executeStoredProcedure(res, dbConfig, 'sp_CmMachine_Rename', parameters);
@@ -545,6 +547,7 @@ function machinesInsertHandler(dbConfig, logTag) {
       const processCd = params.ProcessCd ?? params.processCd ?? params.process_cd ?? null;
       const lineCd = params.LineCd ?? params.lineCd ?? params.line_cd ?? null;
       const machineNm = params.MachineNm ?? params.MachineName ?? params.machineNm ?? null;
+      const machineCd = params.MachineCd ?? params.machineCd ?? params.machine_cd ?? null;
 
       if (!processCd) {
         return res.status(400).json({ error: 'ProcessCd is required' });
@@ -558,7 +561,8 @@ function machinesInsertHandler(dbConfig, logTag) {
         { name: 'Factory', value: String(factory), type: sql.VarChar(20) },
         { name: 'ProcessCd', value: String(processCd), type: sql.VarChar(20) },
         { name: 'LineCd', value: lineCd ? String(lineCd) : null, type: sql.VarChar(20) },
-        { name: 'MachineNm', value: String(machineNm), type: sql.NVarChar(100) }
+        { name: 'MachineNm', value: String(machineNm), type: sql.NVarChar(100) },
+        { name: 'MachineCd', value: machineCd ? String(machineCd) : null, type: sql.NVarChar(50) }
       ];
 
       await database.executeStoredProcedure(res, dbConfig, 'sp_CmMachine_Insert', parameters);

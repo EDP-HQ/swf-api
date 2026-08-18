@@ -33,7 +33,8 @@ BEGIN
             CREATED_DT, LAST_CHG_DT,
             CAST(NULL AS NVARCHAR(50)) AS MACHINE_NO,
             CAST(NULL AS NVARCHAR(10)) AS RUN_DN_TYPE,
-            CAST(NULL AS DATETIME) AS RUN_START_TIME
+            CAST(NULL AS DATETIME) AS RUN_START_TIME,
+            CAST(NULL AS NVARCHAR(50)) AS MACHINE_CD
         FROM dbo.TB_CM_MACHINE;
         RETURN;
     END;
@@ -93,9 +94,20 @@ BEGIN
         cm.USE_YN,
         cm.CREATED_DT,
         cm.LAST_CHG_DT,
-        cd.MACHINE_CD AS MACHINE_NO,
-        ISNULL(rd.RUN_DN_TYPE, N'00') AS RUN_DN_TYPE,
-        rd.START_TIME AS RUN_START_TIME
+        CASE
+            WHEN cm.PROCESS_CD = N'INLINE'
+                THEN dbo.fn_Cm_NormalizeInlineMachineCd(cm.MACHINE_CD)
+            ELSE cd.MACHINE_CD
+        END AS MACHINE_NO,
+        CASE
+            WHEN cm.PROCESS_CD = N'INLINE' THEN N'00'
+            ELSE ISNULL(rd.RUN_DN_TYPE, N'00')
+        END AS RUN_DN_TYPE,
+        CASE
+            WHEN cm.PROCESS_CD = N'INLINE' THEN CAST(NULL AS DATETIME)
+            ELSE rd.START_TIME
+        END AS RUN_START_TIME,
+        cm.MACHINE_CD
     FROM dbo.TB_CM_MACHINE cm
     OUTER APPLY (
         SELECT TOP 1 p.MACHINE_CD
@@ -117,7 +129,8 @@ BEGIN
             r.RUN_DN_TYPE,
             r.START_TIME
         FROM dbo.TB_RUN_DOWN_COLLECTION r
-        WHERE cd.MACHINE_CD IS NOT NULL
+        WHERE cm.PROCESS_CD <> N'INLINE'
+          AND cd.MACHINE_CD IS NOT NULL
           AND r.MACHINE_NO = cd.MACHINE_CD
         ORDER BY r.START_TIME DESC
     ) rd
