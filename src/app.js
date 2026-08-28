@@ -5,6 +5,7 @@ const express = require('express');
 const rollerRoutes = require('./routes/roller');
 const componentsRoutes = require('./routes/components');
 const bobbinRoutes = require('./routes/bobbin');
+const efficiencyRoutes = require('./routes/efficiency');
 const dbRegistry = require('./config/dbRegistry');
 const database = require('./db/database');
 
@@ -61,7 +62,12 @@ function createApp() {
           runtimeWorker: 'GET /components/sfcwr/runtime-worker',
           production: 'GET /components/sfcwr/select (sfcwrdb on 194.1.31.3)'
         },
-        bobbin: { prefix: '/bobbin', example: 'GET /bobbin' }
+        bobbin: { prefix: '/bobbin', example: 'GET /bobbin' },
+        efficiency: {
+          prefix: '/efficiency',
+          example: 'GET /efficiency/sfcwr/bundle?dateFrom=2026-08-19&dateTo=2026-08-19&process=DRAWING',
+          note: 'Read-only USP_SFC_KPRD060_R10 + USP_SFC_CALL031_R10'
+        }
       }
     });
   });
@@ -69,6 +75,7 @@ function createApp() {
   app.use('/roller', rollerRoutes);
   app.use('/components', componentsRoutes);
   app.use('/bobbin', bobbinRoutes);
+  app.use('/efficiency', efficiencyRoutes);
 
   return app;
 }
