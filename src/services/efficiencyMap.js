@@ -28,11 +28,32 @@
  *   MACHINE_DESC        → join key to production machine name
  */
 
-function toIso(v) {
+/**
+ * SFC SQL datetime is factory wall-clock (no TZ). mssql maps it to a Date whose
+ * UTC components match that wall clock — toISOString() adds Z and the browser
+ * shifts +8h (MY). Emit local-style ISO without offset suffix instead.
+ */
+function toWallClockIso(v) {
   if (v == null || v === '') return null;
+
+  if (typeof v === 'string') {
+    const m = v.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)/);
+    if (m) {
+      const time = m[2].length === 5 ? `${m[2]}:00` : m[2].replace(/\.\d+$/, '');
+      return `${m[1]}T${time}`;
+    }
+  }
+
   const d = v instanceof Date ? v : new Date(v);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
+
+  const y = d.getUTCFullYear();
+  const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mi = String(d.getUTCMinutes()).padStart(2, '0');
+  const ss = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${y}-${mo}-${day}T${hh}:${mi}:${ss}`;
 }
 
 function ymdToSpDate(ymd) {
@@ -117,8 +138,8 @@ function mapProductionRow(row) {
     machine,
     process,
     strandType: process === 'STRANDING' ? strandTypeFromMachine(machine) : undefined,
-    start: toIso(row.START_DT),
-    end: toIso(row.FINISH_DT),
+    start: toWallClockIso(row.START_DT),
+    end: toWallClockIso(row.FINISH_DT),
     matDes: row.MATERIAL_DESC || '',
     speed,
     orderLen: Number(row.WO_LENGTH) || 0,
@@ -151,8 +172,8 @@ function mapCallRow(row) {
     (row.CALL_TP ? `Type ${row.CALL_TP}` : 'Call');
 
   return {
-    callTime: toIso(row.CALL_ISSUE_DT),
-    settleTime: toIso(row.CALL_SETTLE_DT),
+    callTime: toWallClockIso(row.CALL_ISSUE_DT),
+    settleTime: toWallClockIso(row.CALL_SETTLE_DT),
     reason: String(reason),
     remark: row.CALL_MEMO || undefined,
     handleRemark: row.CALL_SETTLE_MEMO || undefined,
