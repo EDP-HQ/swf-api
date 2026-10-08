@@ -36,7 +36,8 @@ BEGIN
     DECLARE @LineCd     VARCHAR(20);
     DECLARE @Limit      DECIMAL(12, 2);
     DECLARE @Now        DATETIME = GETDATE();
-    DECLARE @ReplaceDt  DATETIME = CAST(@Now AS DATE);
+    -- Same instant for dismantle + new install (do not strip time to midnight)
+    DECLARE @ReplaceDt  DATETIME = @Now;
     DECLARE @YearPrefix VARCHAR(4) = CONVERT(VARCHAR(4), YEAR(@Now));
     DECLARE @NewPartId  VARCHAR(20);
     DECLARE @NextSeq    INT;

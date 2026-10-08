@@ -1,11 +1,6 @@
 /*
-    Register a new active component on a machine (free-text name + details).
-
-    EXEC dbo.sp_Components_Insert
-        @Company='KSB', @Factory='F002',
-        @MachineNm='12X13HSP', @PartType='Bearing A',
-        @RuntimeLimitHour=6000, @ProcessCd='DRAWING',
-        @PartDetails='SKF 6205 · side A'
+    Insert a new active component.
+    REPLACE_DT uses full GETDATE() (same as Replace dismantle/install).
 */
 
 USE SFC_WR_DB;
@@ -83,7 +78,7 @@ BEGIN
 
     DECLARE @PartSeq      INT;
     DECLARE @Now          DATETIME = GETDATE();
-    DECLARE @ReplaceDt    DATETIME = CAST(@Now AS DATE);
+    DECLARE @ReplaceDt    DATETIME = @Now;
     DECLARE @YearPrefix   VARCHAR(4) = CONVERT(VARCHAR(4), YEAR(@Now));
     DECLARE @NextIdSeq    INT;
     DECLARE @NewPartId    VARCHAR(20);
