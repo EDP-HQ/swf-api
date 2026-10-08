@@ -31,43 +31,37 @@ const PART_KEY_TO_TYPE = {
 function historyHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
-      const rows = await database.executeStoredProcedure(
-        null,
-        dbConfig,
-        'sp_Components_SelectComponetsInfoHistory',
-        []
-      );
+      const q = req.query || {};
+      const machineNm = String(
+        q.machineNm ?? q.machine ?? q.MACHINE_NM ?? q.machine_nm ?? ''
+      ).trim();
+      const partType = String(q.partType ?? q.PART_TYPE ?? q.part_type ?? '').trim();
+      const partIdRaw = q.partId ?? q.PART_ID ?? q.part_id;
+      const partId =
+        partIdRaw != null && String(partIdRaw).trim() !== '' ? String(partIdRaw).trim() : null;
 
-      const list = Array.isArray(rows) ? rows : [];
-      if (list.length === 0) {
-        return res.json([]);
+      if (!partId && (!machineNm || !partType)) {
+        return res.status(400).json({
+          error: 'Provide partId, or both machineNm and partType',
+          example: '/components/sfcwr/history?machineNm=8X12HSP-1&partType=Water%20Inlet%20Strainer'
+        });
       }
 
-      const partIds = [...new Set(list.map((row) => row.PART_ID).filter(Boolean))];
-      if (partIds.length === 0) {
-        return res.json(list);
-      }
+      // Correct history SP: same part type only, includes active row (USE=Y), uses DISMANTLE_DT.
+      const rows = await database.executeStoredProcedure(null, dbConfig, 'sp_Components_History', [
+        { name: 'PartId', type: sql.VarChar(20), value: partId },
+        { name: 'MachineNm', type: sql.NVarChar(100), value: machineNm || null },
+        { name: 'PartType', type: sql.VarChar(20), value: partType || null }
+      ]);
 
-      const idList = partIds.map((id) => `'${String(id).replace(/'/g, "''")}'`).join(',');
-      const typeRows = await database.executeQuery(
-        null,
-        dbConfig,
-        `SELECT PART_ID, PART_TYPE FROM dbo.TB_COMPONENTS_TRACKER WHERE PART_ID IN (${idList})`
-      );
-      const typeById = new Map(
-        (typeRows || []).map((row) => [String(row.PART_ID), row.PART_TYPE])
-      );
-
-      const enriched = list.map((row) => ({
-        ...row,
-        PART_TYPE: typeById.get(String(row.PART_ID)) ?? null
-      }));
-
-      res.json(enriched);
+      res.json(Array.isArray(rows) ? rows : []);
     } catch (error) {
       console.error(`components/history${logTag ? ` (${logTag})` : ''}:`, error);
       if (!res.headersSent) {
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({
+          error: 'Internal Server Error',
+          detail: error?.message || String(error)
+        });
       }
     }
   };
