@@ -47,11 +47,16 @@ function historyHandler(dbConfig, logTag) {
         });
       }
 
-      // Correct history SP: same part type only, includes active row (USE=Y), uses DISMANTLE_DT.
+      // Prefer PartId so long custom PART_TYPE values are resolved from the row (not truncated).
+      // PartType must match Insert (NVARCHAR(100)) — custom names exceed VARCHAR(20).
       const rows = await database.executeStoredProcedure(null, dbConfig, 'sp_Components_History', [
         { name: 'PartId', type: sql.VarChar(20), value: partId },
         { name: 'MachineNm', type: sql.NVarChar(100), value: machineNm || null },
-        { name: 'PartType', type: sql.VarChar(20), value: partType || null }
+        {
+          name: 'PartType',
+          type: sql.NVarChar(100),
+          value: partId ? null : partType || null
+        }
       ]);
 
       res.json(Array.isArray(rows) ? rows : []);

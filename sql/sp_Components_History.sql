@@ -16,7 +16,7 @@ GO
 CREATE OR ALTER PROCEDURE dbo.sp_Components_History
     @PartId     VARCHAR(20)     = NULL,
     @MachineNm  NVARCHAR(100)   = NULL,
-    @PartType   VARCHAR(20)     = NULL
+    @PartType   NVARCHAR(100)   = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
