@@ -1,7 +1,8 @@
 /*
     Update runtime limit (hours) on the active component row ([USE] = 'Y').
-    Identify row by @PartId OR (@MachineNm + @PartSeq).
+    Logs old → new limit into TB_COMPONENTS_LIMIT_HISTORY when the value changes.
 
+    Identify row by @PartId OR (@MachineNm + @PartSeq).
     Returns the updated row.
 */
 
@@ -17,7 +18,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_Components_UpdateRuntimeLimit
     @PartId            VARCHAR(20)     = NULL,
     @MachineNm         NVARCHAR(100)   = NULL,
     @PartSeq           INT             = NULL,
-    @RuntimeLimitHour  DECIMAL(12, 2)
+    @RuntimeLimitHour  DECIMAL(12, 2),
+    @ChangedBy         NVARCHAR(100)   = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -34,9 +36,19 @@ BEGIN
         RETURN;
     END;
 
-    DECLARE @TargetPartId VARCHAR(20);
+    DECLARE
+        @TargetPartId VARCHAR(20),
+        @OldLimit DECIMAL(12, 2),
+        @Machine NVARCHAR(100),
+        @PartType NVARCHAR(100),
+        @Seq INT;
 
-    SELECT TOP 1 @TargetPartId = PART_ID
+    SELECT TOP 1
+        @TargetPartId = PART_ID,
+        @OldLimit = RUNTIME_LIMIT_HOUR,
+        @Machine = MACHINE_NM,
+        @PartType = PART_TYPE,
+        @Seq = PART_SEQ
     FROM dbo.TB_COMPONENTS_TRACKER WITH (UPDLOCK, ROWLOCK)
     WHERE [USE] = 'Y'
       AND (
@@ -57,6 +69,18 @@ BEGIN
     UPDATE dbo.TB_COMPONENTS_TRACKER
     SET RUNTIME_LIMIT_HOUR = @RuntimeLimitHour
     WHERE PART_ID = @TargetPartId;
+
+    IF @OldLimit IS NULL OR @OldLimit <> @RuntimeLimitHour
+    BEGIN
+        INSERT INTO dbo.TB_COMPONENTS_LIMIT_HISTORY (
+            PART_ID, MACHINE_NM, PART_TYPE, PART_SEQ,
+            OLD_LIMIT_HOUR, NEW_LIMIT_HOUR, CHANGED_DT, CHANGED_BY
+        )
+        VALUES (
+            @TargetPartId, @Machine, @PartType, @Seq,
+            @OldLimit, @RuntimeLimitHour, SYSUTCDATETIME(), NULLIF(LTRIM(RTRIM(@ChangedBy)), N'')
+        );
+    END;
 
     SELECT
         COMPANY,

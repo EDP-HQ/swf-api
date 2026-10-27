@@ -165,7 +165,8 @@ BEGIN
         cm.LAST_CHG_DT,
         CASE
             WHEN cm.PROCESS_CD = N'INLINE' THEN cm.MACHINE_CD
-            ELSE cd.MACHINE_CD
+            -- Prefer explicit MACHINE_CD (e.g. BUN 300-1 → ST0014) when plant name differs
+            ELSE COALESCE(NULLIF(LTRIM(RTRIM(cm.MACHINE_CD)), N''), cd.MACHINE_CD)
         END AS MACHINE_NO,
         CASE
             WHEN cm.PROCESS_CD = N'INLINE' THEN N'00'
@@ -192,6 +193,9 @@ BEGIN
                     ELSE cm.MACHINE_NM
                 END
               ))
+           -- Registry "BUN 300-1" vs plant "BUN 300"
+           OR cm.MACHINE_NM = p.PlantNameCore + N'-1'
+           OR cm.MACHINE_NM = p.PlantName + N'-1'
     ) cd
     OUTER APPLY (
         SELECT TOP 1
@@ -199,8 +203,8 @@ BEGIN
             r.START_TIME
         FROM dbo.TB_RUN_DOWN_COLLECTION r
         WHERE cm.PROCESS_CD <> N'INLINE'
-          AND cd.MACHINE_CD IS NOT NULL
-          AND r.MACHINE_NO = cd.MACHINE_CD
+          AND COALESCE(NULLIF(LTRIM(RTRIM(cm.MACHINE_CD)), N''), cd.MACHINE_CD) IS NOT NULL
+          AND r.MACHINE_NO = COALESCE(NULLIF(LTRIM(RTRIM(cm.MACHINE_CD)), N''), cd.MACHINE_CD)
         ORDER BY r.START_TIME DESC
     ) rd
     WHERE (@IncludeHidden = 1 OR @UseYn IS NULL OR cm.USE_YN = @UseYn)

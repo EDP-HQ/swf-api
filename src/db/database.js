@@ -125,11 +125,17 @@ async function executeQuery(response, dbConfig, strQuery) {
   }
 }
 
-/** Execute stored procedure with params: [{ name, value, type? }] */
-async function executeStoredProcedure(response, dbConfig, procedureName, parameters = []) {
+/**
+ * Execute stored procedure with params: [{ name, value, type? }]
+ * @param {{ timeoutMs?: number }} [options] optional per-request timeout (mssql request.timeout)
+ */
+async function executeStoredProcedure(response, dbConfig, procedureName, parameters = [], options = {}) {
   try {
     const pool = await getPool(dbConfig);
     const req = pool.request();
+    if (options.timeoutMs != null && Number(options.timeoutMs) > 0) {
+      req.timeout = Number(options.timeoutMs);
+    }
     for (const p of parameters) {
       // default to NVARCHAR when no explicit type is provided
       const t = p.type || sql.NVarChar;

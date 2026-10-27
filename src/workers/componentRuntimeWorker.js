@@ -8,6 +8,10 @@ const sql = database.sql;
 const sfcwrdbConfig = require('../config/sfcwrdb');
 
 const DEFAULT_INTERVAL_MS = 10_000;
+/** Max age of last-good Buncher on/off used when a poll fails. */
+const BUNCHER_ONOFF_CACHE_MAX_AGE_MS = 60_000;
+/** Don't block the whole tick on a slow plant query. */
+const BUNCHER_ONOFF_REQUEST_TIMEOUT_MS = 12_000;
 
 const SCOPES = [
   { processCd: 'INLINE', lineCd: null },
@@ -20,6 +24,9 @@ const SCOPES = [
 
 /** @type {Map<string, { partId: string, machineNm: string, runtimeSec: number, running: boolean, lastTickMs: number, processCd: string, lineCd: string|null }>} */
 const partState = new Map();
+
+/** @type {{ rows: any[], atMs: number } | null} */
+let buncherOnoffCache = null;
 
 let timer = null;
 let runningTick = false;
@@ -79,8 +86,30 @@ async function loadComponents(processCd, lineCd) {
 }
 
 async function loadBuncherOnoff() {
-  const rows = await execSp('sp_Roller_Run_ONOFF', []);
-  return Array.isArray(rows) ? rows : [];
+  const nowMs = Date.now();
+
+  try {
+    const rows = await database.executeStoredProcedure(
+      null,
+      sfcwrdbConfig,
+      'sp_Roller_Run_ONOFF',
+      [],
+      { timeoutMs: BUNCHER_ONOFF_REQUEST_TIMEOUT_MS }
+    );
+    const list = Array.isArray(rows) ? rows : [];
+    buncherOnoffCache = { rows: list, atMs: nowMs };
+    return list;
+  } catch (e) {
+    const ageMs = buncherOnoffCache ? nowMs - buncherOnoffCache.atMs : Infinity;
+    if (buncherOnoffCache?.rows?.length && ageMs <= BUNCHER_ONOFF_CACHE_MAX_AGE_MS) {
+      console.warn(
+        '[component-runtime] buncher onoff failed, using cache:',
+        e?.message || e
+      );
+      return buncherOnoffCache.rows;
+    }
+    throw e;
+  }
 }
 
 async function loadInlineOnoff() {
@@ -96,14 +125,26 @@ function buildRunningMap(machineRows, buncherOnoffRows, processCd, lineCd, inlin
   const map = new Map();
 
   if (processCd === 'STRANDING' && lineCd === 'BUNCHER' && buncherOnoffRows) {
+    /** @type {Map<string, boolean>} */
+    const byNo = new Map();
     for (const row of buncherOnoffRows) {
+      const running = rowStr(row, 'RUN_DN_TYPE') === '01';
       const name = rowStr(row, 'MachineName', 'MACHINE_NAME', 'MACHINE_NM');
-      if (!name) continue;
-      map.set(name, rowStr(row, 'RUN_DN_TYPE') === '01');
+      if (name) map.set(name, running);
+      const no = rowStr(row, 'MACHINE_NO', 'MACHINE_CD').toUpperCase();
+      if (no) byNo.set(no, running);
     }
     for (const row of machineRows) {
       const name = rowStr(row, 'MACHINE_NM', 'MACHINE_NAME');
-      if (name && !map.has(name)) map.set(name, false);
+      if (!name) continue;
+      if (map.has(name)) continue;
+      // Registry name may differ from plant (e.g. BUN 300-1 vs BUN 300) — match by code
+      const no = rowStr(row, 'MACHINE_NO', 'MACHINE_CD').toUpperCase();
+      if (no && byNo.has(no)) {
+        map.set(name, byNo.get(no) === true);
+      } else {
+        map.set(name, false);
+      }
     }
     return map;
   }

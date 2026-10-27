@@ -72,6 +72,49 @@ function historyHandler(dbConfig, logTag) {
   };
 }
 
+function limitHistoryHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const q = req.query || {};
+      const machineNm = String(
+        q.machineNm ?? q.machine ?? q.MACHINE_NM ?? q.machine_nm ?? ''
+      ).trim();
+      const partType = String(q.partType ?? q.PART_TYPE ?? q.part_type ?? '').trim();
+      const partIdRaw = q.partId ?? q.PART_ID ?? q.part_id;
+      const partId =
+        partIdRaw != null && String(partIdRaw).trim() !== '' ? String(partIdRaw).trim() : null;
+
+      if (!partId && !machineNm) {
+        return res.status(400).json({
+          error: 'Provide partId or machineNm',
+          example: '/components/sfcwr/limithistory?partId=FP202600001'
+        });
+      }
+
+      const rows = await database.executeStoredProcedure(
+        null,
+        dbConfig,
+        'sp_Components_LimitHistory_Select',
+        [
+          { name: 'PartId', type: sql.VarChar(20), value: partId },
+          { name: 'MachineNm', type: sql.NVarChar(100), value: machineNm || null },
+          { name: 'PartType', type: sql.NVarChar(100), value: partType || null }
+        ]
+      );
+
+      res.json(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+      console.error(`components/limithistory${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Internal Server Error',
+          detail: error?.message || String(error)
+        });
+      }
+    }
+  };
+}
+
 function selectHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
@@ -844,6 +887,7 @@ function onoffHandler(dbConfig, logTag) {
 
 router.get('/select', selectHandler(localdbConfig));
 router.get('/history', historyHandler(localdbConfig));
+router.get('/limithistory', limitHistoryHandler(localdbConfig));
 router.get('/onoff', onoffHandler(localdbConfig));
 router.get('/runtime-worker', runtimeWorkerStatusHandler());
 router.get('/machines', machinesSelectHandler(localdbConfig));
@@ -864,6 +908,7 @@ router.post('/updatedetails', updateDetailsHandler(localdbConfig));
 router.post('/insert', insertHandler(localdbConfig));
 router.get('/sfcwr/select', selectHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/history', historyHandler(sfcwrdbConfig, 'sfcwr'));
+router.get('/sfcwr/limithistory', limitHistoryHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/onoff', onoffHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/runtime-worker', runtimeWorkerStatusHandler());
 router.get('/sfcwr/machines', machinesSelectHandler(sfcwrdbConfig, 'sfcwr'));

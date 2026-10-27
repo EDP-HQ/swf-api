@@ -103,6 +103,44 @@ function historyHandler(dbConfig, logTag) {
   };
 }
 
+function limitHistoryHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const q = req.query || {};
+      const rollerId = String(q.rollerId ?? q.RollerId ?? q.ROLLER_ID ?? '').trim();
+      const binLocation = String(
+        q.binLocation ?? q.BinLocation ?? q.BIN_LOCATION_CD ?? q.bin ?? ''
+      ).trim();
+
+      if (!rollerId && !binLocation) {
+        return res.status(400).json({
+          error: 'Provide rollerId or binLocation',
+          example: '/roller/sfcwr/limithistory?rollerId=ST0009_0001'
+        });
+      }
+
+      const rows = await database.executeStoredProcedure(
+        null,
+        dbConfig,
+        'sp_Roller_LimitHistory_Select',
+        [
+          { name: 'RollerId', type: sql.VarChar(30), value: rollerId || null },
+          { name: 'BinLocation', type: sql.VarChar(50), value: binLocation || null }
+        ]
+      );
+      res.json(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+      console.error(`roller/limithistory${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Internal Server Error',
+          detail: error?.message || String(error)
+        });
+      }
+    }
+  };
+}
+
 function updateruntimelimitHandler(dbConfig, logTag) {
   return async (req, res) => {
     try {
@@ -248,6 +286,7 @@ router.get('/list', listHandler(localdbConfig));
 router.get('/activelist', activelistHandler(localdbConfig));
 router.get('/currentruntime', currentruntimeHandler(localdbConfig));
 router.get('/history', historyHandler(localdbConfig));
+router.get('/limithistory', limitHistoryHandler(localdbConfig));
 router.post('/updateruntimelimit', updateruntimelimitHandler(localdbConfig));
 router.post('/batchupdateruntimelimit', batchupdateruntimelimitHandler(localdbConfig));
 router.post('/updateruntime', updateRuntimeHandler(localdbConfig));
@@ -259,6 +298,7 @@ router.get('/sfcwr/list', listHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/activelist', activelistHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/currentruntime', currentruntimeHandler(sfcwrdbConfig, 'sfcwr'));
 router.get('/sfcwr/history', historyHandler(sfcwrdbConfig, 'sfcwr'));
+router.get('/sfcwr/limithistory', limitHistoryHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntimelimit', updateruntimelimitHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/batchupdateruntimelimit', batchupdateruntimelimitHandler(sfcwrdbConfig, 'sfcwr'));
 router.post('/sfcwr/updateruntime', updateRuntimeHandler(sfcwrdbConfig, 'sfcwr'));
