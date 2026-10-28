@@ -235,6 +235,40 @@ function bobbinlifespanHandler(dbConfig, logTag) {
   };
 }
 
+/** Inventory rows on bobbin before scrap — dbo.sp_Bobbin_Inventory_ForScrap_Select (read-only). */
+function scrapInventoryHandler(dbConfig, logTag) {
+  return async (req, res) => {
+    try {
+      const q = req.query || {};
+      const lcCd = String(q.lc_cd ?? q.LC_CD ?? '').trim();
+
+      if (!lcCd) {
+        return res.status(400).json({
+          error: 'Missing query parameters',
+          required: ['lc_cd'],
+          example:
+            logTag === 'sfcwr'
+              ? '/bobbin/sfcwr/scrapinventory?lc_cd=PB40_0005'
+              : '/bobbin/scrapinventory?lc_cd=PB40_0005'
+        });
+      }
+
+      const parameters = [
+        { name: 'COMPANY', value: bobbinApi.company },
+        { name: 'FACTORY', value: bobbinApi.factory },
+        { name: 'LC_CD', value: lcCd },
+        { name: 'LANG', value: bobbinApi.lang, type: sql.VarChar(5) }
+      ];
+      await database.executeStoredProcedure(res, dbConfig, 'sp_Bobbin_Inventory_ForScrap_Select', parameters);
+    } catch (error) {
+      console.error(`scrapinventory${logTag ? ` (${logTag})` : ''}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
+    }
+  };
+}
+
 /** Overview for clients and operators */
 router.get('/', (req, res) => {
   res.json({
@@ -315,6 +349,18 @@ router.get('/', (req, res) => {
         path: '/bobbin/sfcwr/pdascrap',
         body: 'same as POST /bobbin/pdascrap',
         description: 'sfcwrdb — same as /bobbin/pdascrap'
+      },
+      {
+        method: 'GET',
+        path: '/bobbin/scrapinventory',
+        query: 'lc_cd=full bobbin barcode',
+        description: 'localdb — sp_Bobbin_Inventory_ForScrap_Select (TB_INVENTORY rows for scrap UI)'
+      },
+      {
+        method: 'GET',
+        path: '/bobbin/sfcwr/scrapinventory',
+        query: 'same as GET /bobbin/scrapinventory',
+        description: 'sfcwrdb — same as /bobbin/scrapinventory'
       }
     ]
   });
@@ -337,5 +383,8 @@ router.post('/sfcwr/pdalogin', pdaLoginHandler(sfcwrdbConfig, 'sfcwr'));
 
 router.post('/pdascrap', pdaScrapHandler(localdbConfig));
 router.post('/sfcwr/pdascrap', pdaScrapHandler(sfcwrdbConfig, 'sfcwr'));
+
+router.get('/scrapinventory', scrapInventoryHandler(localdbConfig));
+router.get('/sfcwr/scrapinventory', scrapInventoryHandler(sfcwrdbConfig, 'sfcwr'));
 
 module.exports = router;
