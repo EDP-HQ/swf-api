@@ -6,6 +6,7 @@ const rollerRoutes = require('./routes/roller');
 const componentsRoutes = require('./routes/components');
 const bobbinRoutes = require('./routes/bobbin');
 const efficiencyRoutes = require('./routes/efficiency');
+const warehouseRoutes = require('./routes/warehouse');
 const dbRegistry = require('./config/dbRegistry');
 const database = require('./db/database');
 
@@ -67,6 +68,11 @@ function createApp() {
           prefix: '/efficiency',
           example: 'GET /efficiency/sfcwr/bundle?dateFrom=2026-08-19&dateTo=2026-08-19&process=DRAWING',
           note: 'Read-only USP_SFC_KPRD060_R10 + USP_SFC_CALL031_R10'
+        },
+        warehouse: {
+          prefix: '/warehouse',
+          example: 'GET /warehouse/sfcwr/material-verification-m2b',
+          note: 'Material → bin verification (sp_MaterialVerification_M2B_Select)'
         }
       }
     });
@@ -76,6 +82,7 @@ function createApp() {
   app.use('/components', componentsRoutes);
   app.use('/bobbin', bobbinRoutes);
   app.use('/efficiency', efficiencyRoutes);
+  app.use('/warehouse', warehouseRoutes);
 
   return app;
 }
