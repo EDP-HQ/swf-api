@@ -11,12 +11,12 @@
       - Inventory MATERIAL_CD (or NC replace match) not in allowed set for this bin → N
       - Otherwise → Y
 
-    SUGGESTION_BIN_DESC:
-      - DS0001 bins 0001–0065 (7 Rack BUN fixed zone): BIN_LOCATION_TARGET on bin master
-        (same as USP_SFC_KBAS090_PRINT_R10_M TARGET column).
-      - All other bins: KBAS010 Suggestion Bin.lo — BIN_LOCATION_DESC for material BIN_LOCATION_CD.
+    BIN_LOCATION_TARGET: bin master grade text (same column as classic verification TARGET).
 
-    DS0001_0001–0065 also use classic FLAG2 (inventory vs REF_MATERIAL_CD), not material list.
+    SUGGESTION_BIN_DESC: KBAS010 Suggestion Bin.lo — BIN_LOCATION_DESC for grades
+    assigned to this bin on the material list (tooltips / M2B logic only).
+
+    DS0001_0001–0065 use classic FLAG2 (inventory vs REF_MATERIAL_CD); other bins use M2B FLAG2.
 
     FLAG1 (short length): same rule as USP_SFC_KBAS090_PRINT_R10_M — MIN(BALANCE_LENGTH)
     on the bin vs TB_CD_BIN_LOCATION.REF_MATERIAL_STD_LENGTH.
@@ -179,9 +179,8 @@ BEGIN
         A.CDNAME,
         A.BIN_LOC,
         A.BIN_LOC AS BIN_LOC_FULL,
+        LTRIM(RTRIM(A.BIN_LOCATION_TARGET)) AS BIN_LOCATION_TARGET,
         CASE
-            WHEN A.USE_CLASSIC_BIN_RULE = 1 THEN
-                ISNULL(NULLIF(LTRIM(RTRIM(A.BIN_LOCATION_TARGET)), N''), N'FREE')
             WHEN ISNULL(E.SUGGESTION_MATERIAL_CNT, 0) > 0 THEN
                 ISNULL(NULLIF(LTRIM(RTRIM(E.SUGGESTION_BIN_DESC)), N''), N'FREE')
             ELSE N'FREE'
