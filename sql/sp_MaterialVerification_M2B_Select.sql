@@ -12,11 +12,11 @@
       - Otherwise → Y
 
     SUGGESTION_BIN_DESC:
-      - DS0001 bins 0001–0050 (7 Rack BUN fixed zone): BIN_LOCATION_TARGET on bin master
+      - DS0001 bins 0001–0065 (7 Rack BUN fixed zone): BIN_LOCATION_TARGET on bin master
         (same as USP_SFC_KBAS090_PRINT_R10_M TARGET column).
       - All other bins: KBAS010 Suggestion Bin.lo — BIN_LOCATION_DESC for material BIN_LOCATION_CD.
 
-    DS0001_0001–0050 also use classic FLAG2 (inventory vs REF_MATERIAL_CD), not material list.
+    DS0001_0001–0065 also use classic FLAG2 (inventory vs REF_MATERIAL_CD), not material list.
 
     FLAG1 (short length): same rule as USP_SFC_KBAS090_PRINT_R10_M — MIN(BALANCE_LENGTH)
     on the bin vs TB_CD_BIN_LOCATION.REF_MATERIAL_STD_LENGTH.
@@ -85,7 +85,7 @@ BEGIN
             A.BIN_LOCATION_TARGET,
             CASE
                 WHEN A.BIN_LOCATION_CD LIKE N'DS0001[_]%'
-                 AND TRY_CAST(RIGHT(A.BIN_LOCATION_CD, 4) AS INT) BETWEEN 1 AND 50
+                 AND TRY_CAST(RIGHT(A.BIN_LOCATION_CD, 4) AS INT) BETWEEN 1 AND 65
                 THEN 1
                 ELSE 0
             END AS USE_CLASSIC_BIN_RULE
